@@ -65,6 +65,8 @@ public static class CardChecks
 				Warn( $"Effect {i + 1} ({effect.Section}) has text but no blocks, so it won't do anything in a duel yet." );
 		}
 
+		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && e.If.Count > 0 && !CsCardCrafter.Core.Text.EffectWriter.IsInnate( e ) ) )
+			Warn( "An innate condition holds IF blocks only; move its other blocks to an effect of their own." );
 		if ( card.Keywords.Any( k => CardKeywords.Name( k ) is null ) )
 			Warn( "Unknown keyword: " + string.Join( ", ", card.Keywords.Where( k => CardKeywords.Name( k ) is null ) ) + "." );
 		return results;

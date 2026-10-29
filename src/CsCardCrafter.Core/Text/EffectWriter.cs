@@ -26,6 +26,7 @@ public static class EffectWriter
 		{
 			EffectSection.Combat => Combat( card, effect ),
 			EffectSection.Keyword => Sentences( effect.Always ),
+			_ when IsInnate( effect ) => Innate( effect ),
 			_ => Activated( effect ),
 		};
 	}
@@ -60,6 +61,21 @@ public static class EffectWriter
 		var name = card.DuoMasteries.Count > 0 ? card.DuoMasteries[^1] : card.Mastery;
 		var info = Masteries.Get( name );
 		return info.Name == Masteries.Masterless ? "" : info.Name;
+	}
+
+	/// <summary>
+	/// An innate condition: a card-wide "Activate only if ..." line built from IF blocks alone (no WHEN, COST or THEN).
+	/// If it doesn't hold, the card can't be activated (Justin, 2026-10-29: Second Breath's "Activate only if this card has
+	/// 1 or more Spirit activations"). It sits in the Important Tag section and prints first.
+	/// </summary>
+	public static bool IsInnate( CardEffect effect ) =>
+		effect.Section == EffectSection.ImportantTag && effect.If.Count > 0 && effect.When.Count + effect.Cost.Count + effect.Then.Count == 0;
+
+	static string Innate( CardEffect effect )
+	{
+		var conditions = effect.If.Select( OracleText.Of ).Where( t => t.Length > 0 )
+			.Select( t => System.Text.RegularExpressions.Regex.Replace( Condition( t ), "^(if|If) ", "" ) ).ToList();
+		return conditions.Count == 0 ? "" : Finish( "Activate only if " + string.Join( " and ", conditions ) );
 	}
 
 	/// <summary>An effect that starts on an event or that the player activates: lead, conditions, cost, then what it does.</summary>
@@ -150,6 +166,8 @@ public static class EffectWriter
 	/// </summary>
 	public static string UsageLine( CardDefinition card )
 	{
+		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && !IsInnate( e ) ) )
+			return "";
 		var limited = card.Effects
 			.Where( e => e.Usage is EffectUsage.OncePerTurn or EffectUsage.OncePerRound or EffectUsage.OncePerConflict )
 			.Select( e => $"{(e.Section == EffectSection.Hand ? "Hand" : e.Section.ToString())} effect once per {e.Usage switch { EffectUsage.OncePerTurn => "turn", EffectUsage.OncePerRound => "round", _ => "Conflict" }}" )

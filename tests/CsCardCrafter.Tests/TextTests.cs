@@ -105,3 +105,17 @@ public class TextTests
 		Assert.True( same * 2 > total, $"{same}/{total}" );
 	}
 }
+
+public class InnateConditionTests
+{
+	[Fact]
+	public void PrintsActivateOnlyIfAndLeadsTheCard()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Life" };
+		card.Effects.Add( new CardEffect { Section = EffectSection.Field, Then = { BlockRegistry.Get( "OP_Draw" ).Make( ("Amount", "1"), ("Who", "you") ) } } );
+		card.Effects.Add( new CardEffect { Section = EffectSection.ImportantTag, If = { BlockRegistry.Get( "OP_IfMastery" ).Make( ("Mastery", "Life") ) } } );
+		Assert.True( EffectWriter.IsInnate( card.Effects[1] ) );
+		Assert.Equal( "Activate only if your mastery is Life.", EffectWriter.Write( card, card.Effects[1] ) );
+		Assert.StartsWith( "{BEG}Activate only if your mastery is Life.{END}{BEG}You draw 1.{END}", CardWriter.Description( card, keepTyped: false ) );
+	}
+}

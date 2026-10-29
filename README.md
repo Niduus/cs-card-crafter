@@ -9,7 +9,13 @@ effects from blocks on an event sheet, and watch the card face and its text upda
 
 ![Game cards drawn by the crafter](docs/screenshots/faces.png)
 
-## Getting started
+## Download
+
+Get `CSCardCrafter.exe` from the [Releases](../../releases) page. It is one file and needs nothing installed.
+On first run, click **Game folder…** and pick your `chaos_spells_sbox` folder: the crafter reads the cards, art and
+icons from there and installs new cards into it.
+
+## Building from source
 
 1. Clone with the game inside it: `git clone --recursive https://github.com/Niduus/cs-card-crafter`
    (or `git submodule update --init` in an existing clone).
@@ -26,6 +32,10 @@ effects from blocks on an event sheet, and watch the card face and its text upda
 | **Text** | The printed text, one `{BEG}…{END}` paragraph per effect. With auto text on, it is written from the blocks in Chaos Spells wording (oracle.md): "Combat: 650 Storm damage to target enemy, Then you gain 2 250 damage Blades." Text you type yourself always wins. The keyword panel explains every keyword on the card. |
 | **Data** | The `.cscard` file exactly as it will be saved. |
 | **Browse** | Every card in the game, sorted by Mastery, Mana Count, then A to Z, with one search bar. **Open to edit** edits a game card in place; **New card from this one** starts from a copy. The Blocks column shows how many of a card's effects already run on blocks in the game. |
+
+**Innate conditions.** "Activate only if this card has 1 or more Spirit activations": add an **Innate condition**
+on the Effects tab and put IF blocks in it. When they don't hold, the card can't be activated. It prints first on
+the card.
 
 The card face on the right is drawn with the game's own layout, fonts and art. The **Checks** list under it warns
 about anything that would keep the card out of play (no ID, dev card, Spirit points, unknown blocks...).
@@ -45,4 +55,5 @@ game gets a new block, update the submodule and it shows up in the **+ Add** men
 | `src/CsCardCrafter.Core` | No UI: the game's code, card files (`CardFile`, `GameFolder`), text writing (`OracleText`, `EffectWriter`, `CardWriter`) and `CardChecks`. |
 | `src/CsCardCrafter.App` | The Avalonia app. `CardFaceView` draws the card face. |
 | `tests/CsCardCrafter.Tests` | `dotnet test`: every game card round-trips unchanged, oracle wording, install. |
+| `.github/workflows/release.yml` | Pushing a `v*` tag builds the exe and publishes a GitHub Release (needs a `GAME_REPO_TOKEN` secret that can read the game repo). |
 | `tools/Screenshots` | Renders the app without a screen into PNGs (`docs/screenshots`). |

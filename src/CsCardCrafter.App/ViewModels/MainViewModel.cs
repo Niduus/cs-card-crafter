@@ -273,7 +273,8 @@ public sealed partial class MainViewModel : ObservableObject
 	[RelayCommand]
 	void AddEffect( string section )
 	{
-		var effect = new CardEffect { Section = Enum.TryParse<EffectSection>( section, out var s ) ? s : EffectSection.Field };
+		// An innate condition is an Important Tag effect holding only IF blocks ("Activate only if ...").
+		var effect = new CardEffect { Section = section == "Innate" ? EffectSection.ImportantTag : Enum.TryParse<EffectSection>( section, out var s ) ? s : EffectSection.Field };
 		Card.Effects.Add( effect );
 		Effects.Add( new EffectViewModel( this, effect ) );
 		Renumber();

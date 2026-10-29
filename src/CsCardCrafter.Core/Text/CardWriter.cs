@@ -28,14 +28,15 @@ public static class CardWriter
 	public static string Description( CardDefinition card, bool keepTyped = true )
 	{
 		var lines = new List<string>();
-		var effects = card.Effects.OrderBy( e => Array.IndexOf( Order, e.Section ) ).ToList();
+		// Innate conditions ("Activate only if ...") lead the card, as printed cards have them.
+		var effects = card.Effects.OrderBy( e => EffectWriter.IsInnate( e ) ? -1 : Array.IndexOf( Order, e.Section ) ).ToList();
 		foreach ( var effect in effects )
 		{
 			var text = keepTyped && !string.IsNullOrWhiteSpace( effect.Text ) ? effect.Text.Trim() : Suggest( card, effect );
 			if ( text.Length > 0 )
 				lines.Add( text );
 		}
-		if ( !card.Effects.Any( e => e.Section == EffectSection.ImportantTag ) && EffectWriter.UsageLine( card ) is { Length: > 0 } usage )
+		if ( EffectWriter.UsageLine( card ) is { Length: > 0 } usage )
 			lines.Add( usage );
 		return string.Concat( lines.Select( l => "{BEG}" + l + "{END}" ) );
 	}

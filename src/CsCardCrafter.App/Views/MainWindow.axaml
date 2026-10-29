@@ -191,7 +191,9 @@
 						<Button Classes="small" Content="Abyss" Command="{Binding AddEffectCommand}" CommandParameter="Abyss" />
 						<Button Classes="small" Content="Void" Command="{Binding AddEffectCommand}" CommandParameter="Void" />
 						<Button Classes="small" Content="Keyword" Command="{Binding AddEffectCommand}" CommandParameter="Keyword" />
-						<Button Classes="small" Content="Other" Command="{Binding AddEffectCommand}" CommandParameter="ImportantTag" />
+						<Button Classes="small" Content="Innate condition" Command="{Binding AddEffectCommand}" CommandParameter="Innate"
+						        ToolTip.Tip="&quot;Activate only if ...&quot;: put IF blocks in it; when they don't hold, the card can't be activated" />
+						<Button Classes="small" Content="Other" Command="{Binding AddEffectCommand}" CommandParameter="Flavor" />
 					</StackPanel>
 					<ScrollViewer>
 						<ItemsControl ItemsSource="{Binding Effects}" Margin="8,0,8,8">

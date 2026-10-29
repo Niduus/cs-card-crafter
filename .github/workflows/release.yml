@@ -1,0 +1,33 @@
+# Builds CSCardCrafter.exe (one file, nothing to install) and publishes it as a GitHub Release when a version tag
+# such as v0.1.0 is pushed. The game repo is a private submodule, so checkout needs a token that can read it:
+# add a repository secret GAME_REPO_TOKEN (a fine-grained token with read access to Niduus/chaos_spells_sbox).
+name: Release
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GAME_REPO_TOKEN }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test
+        run: dotnet test tests/CsCardCrafter.Tests
+      - name: Publish
+        run: dotnet publish src/CsCardCrafter.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" publish/CSCardCrafter.exe --title "CS Card Crafter ${{ github.ref_name }}" --generate-notes
