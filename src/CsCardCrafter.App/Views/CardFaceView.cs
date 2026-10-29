@@ -13,7 +13,8 @@ namespace CsCardCrafter.App.Views;
 /// same percentage of the 254 x 354 card, the name is Sherlock Vintage squeezed sideways to fill the banner (never
 /// shrunk), costs and the copy limit are white numbers with a black outline (0 still shows), and the effect text is
 /// the game's <see cref="CardText"/> runs in bold Liberation Sans, sized down only until it fits its box. Lines of
-/// one effect sit close together; a wider gap shows where the next effect starts.
+/// one effect sit close together; a wider gap shows where the next effect starts. Spirit cards show one Spirit icon,
+/// in the Legendary icon's place, with their Spirit Deck slots on it.
 /// </summary>
 public sealed class CardFaceView : Control
 {
@@ -27,6 +28,8 @@ public sealed class CardFaceView : Control
 
 	public CardDefinition Card { get => GetValue( CardProperty ); set => SetValue( CardProperty, value ); }
 	public int Revision { get => GetValue( RevisionProperty ); set => SetValue( RevisionProperty, value ); }
+
+	const string SpiritIcon = "ui/card/icons/spirit.png";
 
 	static readonly FontFamily TitleFont = new( "avares://CSCardCrafter/Assets/Fonts#Sherlock Vintage" );
 	static readonly FontFamily BodyFont = new( "avares://CSCardCrafter/Assets/Fonts#Liberation Sans" );
@@ -77,7 +80,11 @@ public sealed class CardFaceView : Control
 		ctx.FillRectangle( Brushes.White, art );
 		DrawImage( ctx, Images.Get( card.Artwork ), art );
 
-		DrawContain( ctx, Images.Get( card.ClassIcon ), Box( 3.66, 11.30, 12.6, 9.04 ) );
+		// Spirit cards follow the Legendary rule innately (have 1, control 1): one Spirit icon in the Legendary icon's
+		// place, with the Spirit Deck slots it takes over it, and none in the corners or the footer (Justin).
+		var spirit = card.IsSpirit;
+		if ( !spirit )
+			DrawContain( ctx, Images.Get( card.ClassIcon ), Box( 3.66, 11.30, 12.6, 9.04 ) );
 		double[] costTops = { 19.32, 26.02, 32.60 };
 		for ( var i = 0; i < card.Costs.Count && i < 3; i++ )
 		{
@@ -85,7 +92,8 @@ public sealed class CardFaceView : Control
 			DrawContain( ctx, Images.Get( card.Costs[i].Icon ), rect );
 			DrawBadgeText( ctx, (card.Costs[i].Amount ?? "").ToUpperInvariant(), rect, 0.085 );
 		}
-		DrawContain( ctx, Images.Get( card.TypeIcon ), Box( 83.35, 11.30, 12.6, 9.04 ) );
+		if ( !spirit )
+			DrawContain( ctx, Images.Get( card.TypeIcon ), Box( 83.35, 11.30, 12.6, 9.04 ) );
 		if ( !string.IsNullOrEmpty( card.FusionIcon ) )
 			DrawContain( ctx, Images.Get( card.FusionIcon ), Box( 3.15, 43.50, 10.24, 7.34 ) );
 		if ( !string.IsNullOrEmpty( card.ReshuffleIcon ) )
@@ -99,14 +107,22 @@ public sealed class CardFaceView : Control
 		}
 
 		ctx.FillRectangle( Brushes.Black, Box( 2.27, 58.9, 95.83, 0.85 ) );
-		if ( !string.IsNullOrEmpty( card.OnlyIcon ) )
-			DrawContain( ctx, Images.Get( card.OnlyIcon ), Box( 44.88, 53.09, 10.24, 7.34 ) );
+		var only = Box( 44.88, 53.09, 10.24, 7.34 );
+		if ( spirit )
+		{
+			DrawContain( ctx, Images.Get( SpiritIcon ), only );
+			if ( !string.IsNullOrWhiteSpace( card.SpiritLimit ) )
+				DrawBadgeText( ctx, card.SpiritPoints.ToString( CultureInfo.InvariantCulture ), only, 0.09 );
+		}
+		else if ( !string.IsNullOrEmpty( card.OnlyIcon ) )
+			DrawContain( ctx, Images.Get( card.OnlyIcon ), only );
 		ctx.FillRectangle( new SolidColorBrush( Color.FromArgb( 77, 255, 255, 255 ) ), Box( 2.27, 59.75, 95.45, 35.4 ) );
 		DrawEffectText( ctx, card, Box( 2.97, 59.75, 94.06, 35.4 ) );
 
 		DrawCredit( ctx, card.FooterLeft, Box( 2.27, 95.17, 39.05, 2.85 ), TextAlignment.Left );
 		DrawCredit( ctx, card.FooterRight, Box( 58.68, 95.17, 39.05, 2.85 ), TextAlignment.Right );
-		DrawContain( ctx, Images.Get( "ui/card/icons/spirit.png" ), Box( 46.85, 95.32, 6.3, 4.52 ) );
+		if ( !spirit )
+			DrawContain( ctx, Images.Get( SpiritIcon ), Box( 46.85, 95.32, 6.3, 4.52 ) );
 	}
 
 	/// <summary>The parchment banner over its dark ragged shadow, and the name squeezed sideways to fit it.</summary>
@@ -126,7 +142,8 @@ public sealed class CardFaceView : Control
 		var box = Box( 2.97, 2.2, 94.06, 8.3 );
 		var text = new FormattedText( card.Name ?? "", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
 			new Typeface( TitleFont ), BaseWidth * CardFit.TitleSize, Brushes.Black );
-		var room = box.Width * 0.97;
+		// The game's room for the name: end mark to end mark of the banner (CardFit.NameRoom of the card's width).
+		var room = BaseWidth * CardFit.NameRoom;
 		var squeeze = text.Width > room ? room / text.Width : 1;
 		var origin = new Point( box.Center.X - text.Width / 2, box.Center.Y - text.Height / 2 );
 		using ( ctx.PushTransform( Matrix.CreateTranslation( -box.Center.X, 0 ) * Matrix.CreateScale( squeeze, 1 ) * Matrix.CreateTranslation( box.Center.X, 0 ) ) )
@@ -224,14 +241,22 @@ public sealed class CardFaceView : Control
 			var lines = new List<List<Word>>();
 			var line = new List<Word>();
 			double width = 0;
+			var broken = false;
 			foreach ( var runs in CardText.Words( paragraph ) )
 			{
+				// A written line break inside one effect starts a new line at the effect's own spacing
+				// ("Choose one" options each get their own line).
+				if ( CardText.IsBreak( runs ) )
+				{
+					broken = true;
+					continue;
+				}
 				var pieces = runs.Select( r => (r, Measure( r, size )) ).ToList();
 				var word = new Word( pieces, pieces.Sum( p => p.Item2.Width ) );
 				if ( word.Width > maxWidth )
 					overflowsWidth = true;
 				var needed = line.Count == 0 ? word.Width : width + gap + word.Width;
-				if ( line.Count > 0 && needed > maxWidth )
+				if ( line.Count > 0 && (broken || needed > maxWidth) )
 				{
 					lines.Add( line );
 					line = new List<Word>();
@@ -239,6 +264,7 @@ public sealed class CardFaceView : Control
 				}
 				line.Add( word );
 				width = needed;
+				broken = false;
 			}
 			if ( line.Count > 0 )
 				lines.Add( line );
