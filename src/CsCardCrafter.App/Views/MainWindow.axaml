@@ -15,6 +15,20 @@
 		<Border DockPanel.Dock="Top" Background="#1AFFFFFF" Padding="8,6">
 			<DockPanel>
 				<StackPanel Orientation="Horizontal" Spacing="6">
+					<!-- Every card in the game's cards folder, in the game's order: pick one to edit it -->
+					<ComboBox x:Name="CardPicker" Width="340" MaxDropDownHeight="640" PlaceholderText="Pick a game card to edit…"
+					          ItemsSource="{Binding Browse.All}" SelectedItem="{Binding Picked, Mode=OneWay}"
+					          SelectionChanged="CardPicker_SelectionChanged" IsTextSearchEnabled="True"
+					          ToolTip.Tip="Every card in the game's cards folder. Type a name's first letters to jump to it.">
+						<ComboBox.ItemTemplate>
+							<DataTemplate x:DataType="vm:BrowseItem">
+								<StackPanel>
+									<TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+									<TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis" />
+								</StackPanel>
+							</DataTemplate>
+						</ComboBox.ItemTemplate>
+					</ComboBox>
 					<Button Content="New" Command="{Binding NewCommand}" ToolTip.Tip="Start a new card" />
 					<Button Content="Open…" Click="Open_Click" ToolTip.Tip="Open a .cscard file" />
 					<Button Content="Save" Click="Save_Click" ToolTip.Tip="Save the card file" />

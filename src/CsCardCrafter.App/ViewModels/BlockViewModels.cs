@@ -37,9 +37,10 @@ public sealed partial class ParamViewModel : ObservableObject
 		get => _op.Params.TryGetValue( Param.Key, out var v ) ? v : Param.Default ?? "";
 		set
 		{
-			if ( value == Value )
+			// null comes from a list that can't show the value (one the game's choices don't name): keep the value.
+			if ( value is null || value == Value )
 				return;
-			_op.Params[Param.Key] = value ?? "";
+			_op.Params[Param.Key] = value;
 			OnPropertyChanged();
 			_changed();
 		}

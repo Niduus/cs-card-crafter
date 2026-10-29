@@ -34,7 +34,11 @@ icons from there and installs new cards into it.
 - the project's export list is checked for `cards/*` (and put back if the editor lost it);
 - with **Commit to git** ticked, the card and its art are committed in the game folder, ready to push.
 
-A card opened from the game (Browse, **Open to edit**) is written back where it is, keeping its ID.
+A card opened from the game (the card picker, or Browse, **Open to edit**) is written back where it is, keeping its ID.
+
+## Editing the game's cards
+
+The card picker at the top left lists every card file in the game's `Assets/cards` folder, every collection, in the game's order. Pick one (or type the first letters of its name) and it opens for editing; **Save** writes it back to its own file. If the card you're leaving has unsaved changes, the crafter asks first. Opening a card never changes it: only your edits do.
 
 ## How it works
 

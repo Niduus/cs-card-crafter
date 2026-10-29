@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using TextLayout = Avalonia.Media.TextFormatting.TextLayout;
 using ChaosSpells.Cards;
 using CsCardCrafter.App.Services;
 
@@ -30,6 +31,9 @@ public sealed class CardFaceView : Control
 	public int Revision { get => GetValue( RevisionProperty ); set => SetValue( RevisionProperty, value ); }
 
 	const string SpiritIcon = "ui/card/icons/spirit.png";
+
+	/// <summary>The game's .name-text letter-spacing (-0.5px on the 254 px card).</summary>
+	const double NameLetterSpacing = -0.5;
 
 	static readonly FontFamily TitleFont = new( "avares://CSCardCrafter/Assets/Fonts#Sherlock Vintage" );
 	static readonly FontFamily BodyFont = new( "avares://CSCardCrafter/Assets/Fonts#Liberation Sans" );
@@ -140,14 +144,16 @@ public sealed class CardFaceView : Control
 		}
 
 		var box = Box( 2.97, 2.2, 94.06, 8.3 );
-		var text = new FormattedText( card.Name ?? "", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-			new Typeface( TitleFont ), BaseWidth * CardFit.TitleSize, Brushes.Black );
+		// The game's name label: Sherlock Vintage at the full banner size, letter-spacing -0.5px on the 254 card.
+		using var text = new TextLayout( card.Name ?? "", new Typeface( TitleFont ), BaseWidth * CardFit.TitleSize, Brushes.Black,
+			letterSpacing: NameLetterSpacing );
 		// The game's room for the name: end mark to end mark of the banner (CardFit.NameRoom of the card's width).
 		var room = BaseWidth * CardFit.NameRoom;
-		var squeeze = text.Width > room ? room / text.Width : 1;
-		var origin = new Point( box.Center.X - text.Width / 2, box.Center.Y - text.Height / 2 );
+		var width = text.WidthIncludingTrailingWhitespace;
+		var squeeze = width > room ? room / width : 1;
+		var origin = new Point( box.Center.X - width / 2, box.Center.Y - text.Height / 2 );
 		using ( ctx.PushTransform( Matrix.CreateTranslation( -box.Center.X, 0 ) * Matrix.CreateScale( squeeze, 1 ) * Matrix.CreateTranslation( box.Center.X, 0 ) ) )
-			ctx.DrawText( text, origin );
+			text.Draw( ctx, origin );
 	}
 
 	/// <summary>Cost and copy-limit numbers: white, thin black outline, shrunk only when long ("180", "6%") so they stay in the badge.</summary>
@@ -159,7 +165,9 @@ public sealed class CardFaceView : Control
 		var size = Math.Min( BaseWidth * share, BaseWidth * 0.115 / Math.Max( 0.56, em ) );
 		var formatted = new FormattedText( text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface( BodyFont ), size, Brushes.White );
 		var origin = new Point( badge.Center.X - formatted.Width / 2, badge.Center.Y - formatted.Height / 2 );
-		DrawOutlined( ctx, formatted, origin, Brushes.White, size * 0.07 );
+		// The game strokes badge numbers at 7% of their size and body text at 3%; a stroke sits across the letter's
+		// edge, so half of it shows outside the letter, which is what DrawOutlined's width means.
+		DrawOutlined( ctx, formatted, origin, Brushes.White, size * 0.07 / 2 );
 	}
 
 	static void DrawCredit( DrawingContext ctx, string text, Rect box, TextAlignment align )
@@ -217,7 +225,7 @@ public sealed class CardFaceView : Control
 						// Lines sit at 84% of the font size, as the game draws them; centre the glyphs in that line.
 						var top = y + (lineHeight - text.Height) / 2;
 						var brush = new SolidColorBrush( ParseColor( run.Color ) );
-						DrawOutlined( ctx, text, new Point( x, top ), brush, size * 0.015 );
+						DrawOutlined( ctx, text, new Point( x, top ), brush, size * 0.03 / 2 );
 						if ( run.Underline )
 							ctx.DrawLine( new Pen( brush, size * 0.07 ), new Point( x, top + text.Baseline + size * 0.1 ), new Point( x + text.Width, top + text.Baseline + size * 0.1 ) );
 						x += text.Width;

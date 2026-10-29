@@ -45,9 +45,12 @@ public static class CardParts
 	public const string NoReshuffleIcon = "ui/card/icons/noreshuffle.png";
 	public const string FusionIcon = "ui/card/icons/newfuse.png";
 
-	/// <summary>Masteries a card can Portray, in the card sort order (Light is stored as "Sun", as in the game's data).</summary>
+	/// <summary>
+	/// Masteries a card can Portray, in the card sort order (Light is stored as "Sun", as in the game's data). "Mastery"
+	/// is the game's Mastery cards (Kitharas, Yharon), whose Combat hits in the Mastery they name.
+	/// </summary>
 	public static readonly string[] Masteries =
-		{ "Ice", "Fire", "Storm", "Myth", "Life", "Death", "Balance", "Shadow", "Embraced", "Spectre", "Crimson", "Sun", "Darkness", "Masterless" };
+		{ "Ice", "Fire", "Storm", "Myth", "Life", "Death", "Balance", "Shadow", "Embraced", "Spectre", "Crimson", "Sun", "Darkness", "Masterless", "Mastery" };
 
 	/// <summary>How a Mastery is named in menus: "Sun" is Light.</summary>
 	public static string MasteryLabel( string mastery ) => mastery == "Sun" ? "Light" : mastery;
@@ -67,8 +70,9 @@ public static class CardParts
 		return $"ui/card/backgrounds/{name}background.png";
 	}
 
-	/// <summary>The crest top left: the game's Mastery crest.</summary>
-	public static string Crest( string mastery ) => ChaosSpells.Cards.Masteries.Get( mastery ).Icon;
+	/// <summary>The crest top left: the game's Mastery crest, or the rainbow Mastery crest for Mastery cards (as the game's importer gives them).</summary>
+	public static string Crest( string mastery ) =>
+		mastery == "Mastery" ? "ui/card/icons/mastery.png" : ChaosSpells.Cards.Masteries.Get( mastery ).Icon;
 
 	/// <summary>A fresh card with everything the face needs, ready to edit.</summary>
 	public static CardDefinition NewCard( string mastery = "Fire" )

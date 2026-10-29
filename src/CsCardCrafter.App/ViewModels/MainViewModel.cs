@@ -43,6 +43,13 @@ public sealed partial class MainViewModel : ObservableObject
 	/// <summary>Where the card lives in the game folder, when it was opened from there (Install writes it back there).</summary>
 	[ObservableProperty] string _gamePath;
 
+	/// <summary>The game card being edited, as the card picker shows it (null for a new card or one from elsewhere).</summary>
+	[ObservableProperty] BrowseItem _picked;
+
+	/// <summary>Points the card picker at the card being edited, after a load or after the card list was re-read.</summary>
+	void SyncPicked() =>
+		Picked = GamePath is null ? null : Browse.All.FirstOrDefault( i => string.Equals( Path.GetFullPath( i.Game.Path ), Path.GetFullPath( GamePath ), StringComparison.OrdinalIgnoreCase ) );
+
 	/// <summary>On: the description is written from the effects on every change. Off: it is typed on the Text tab.</summary>
 	[ObservableProperty] bool _autoText = true;
 
@@ -67,6 +74,7 @@ public sealed partial class MainViewModel : ObservableObject
 			_settings.Save();
 		}
 		Browse.Load( game );
+		SyncPicked();
 		Revision++;
 	}
 
@@ -104,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject
 		Renumber();
 		CardChanged();
 		Dirty = false;
+		SyncPicked();
 	}
 
 	[RelayCommand]
@@ -160,6 +169,13 @@ public sealed partial class MainViewModel : ObservableObject
 			PrepareForSave();
 			CardFile.Save( Card, path );
 			FilePath = path;
+			if ( Game is not null && Path.GetFullPath( path ).StartsWith( Path.GetFullPath( Game.CardsFolder ), StringComparison.OrdinalIgnoreCase ) )
+			{
+				// A game card: the picker and browser show the saved values straight away.
+				GamePath = path;
+				Browse.Load( Game );
+				SyncPicked();
+			}
 			_settings.AddRecent( path );
 			Dirty = false;
 			Status = $"Saved {Path.GetFileName( path )}.";
@@ -202,6 +218,7 @@ public sealed partial class MainViewModel : ObservableObject
 			GamePath = result.CardFile;
 			FilePath = result.CardFile;
 			Browse.Load( Game );
+			SyncPicked();
 			var note = $"Added to the game as #{result.Card.Id} in {result.Card.Collection}: {Game.AssetPath( result.CardFile )}.";
 			if ( result.ExportListFixed )
 				note += " The project's export list had lost cards/*, so it was put back.";
@@ -361,7 +378,9 @@ public sealed partial class MainViewModel : ObservableObject
 
 	bool Set<T>( T current, T value, Action<T> write, bool look = false, [CallerMemberName] string name = null )
 	{
-		if ( EqualityComparer<T>.Default.Equals( current, value ) )
+		// A list that can't show the card's value (a Mastery or type it doesn't name) writes back null when a card is
+		// opened. That is never an edit: ignore it, so opening a card never changes it.
+		if ( value is null || EqualityComparer<T>.Default.Equals( current, value ) )
 			return false;
 		write( value );
 		if ( look )
@@ -375,7 +394,7 @@ public sealed partial class MainViewModel : ObservableObject
 
 	public string Name { get => Card?.Name ?? ""; set => Set( Name, value ?? "", v => Card.Name = v ); }
 	public int Id { get => Card?.Id ?? 0; set => Set( Id, value, v => Card.Id = v ); }
-	public string Mastery { get => Card?.Mastery ?? ""; set => Set( Mastery, value ?? "", v => Card.Mastery = v, look: true ); }
+	public string Mastery { get => Card?.Mastery ?? ""; set => Set( Mastery, value, v => Card.Mastery = v, look: true ); }
 
 	/// <summary>Duo cards (Kitharas) portray two more Masteries: "Crimson, Life". Combat hits in the last one.</summary>
 	public string DuoMasteries { get => string.Join( ", ", Card?.DuoMasteries ?? new() ); set => Set( DuoMasteries, value ?? "", v => Card.DuoMasteries = SplitList( v ) ); }

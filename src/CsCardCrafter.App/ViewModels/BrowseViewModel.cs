@@ -10,6 +10,12 @@ namespace CsCardCrafter.App.ViewModels;
 public sealed record BrowseItem( GameCard Game, string Name, string Mastery, string Type, string Cost, string Blocks )
 {
 	public CardDefinition Card => Game.Card;
+
+	/// <summary>What the card picker shows and types to: the card's name, with its collection folder.</summary>
+	public string Detail => $"{Mastery} · {Type} · {Collection}";
+	public string Collection => Path.GetFileName( Path.GetDirectoryName( Game.Path ) ) ?? "";
+
+	public override string ToString() => Name;
 }
 
 /// <summary>
@@ -21,6 +27,9 @@ public sealed partial class BrowseViewModel : ObservableObject
 	List<BrowseItem> _all = new();
 
 	public ObservableCollection<BrowseItem> Results { get; } = new();
+
+	/// <summary>Every card file in the game's cards folder (all collections, dev cards too), for the card picker.</summary>
+	public ObservableCollection<BrowseItem> All { get; } = new();
 	public string SearchHelp => string.Join( "\n", CardSearch.Help );
 
 	[ObservableProperty] string _query = "";
@@ -36,6 +45,9 @@ public sealed partial class BrowseViewModel : ObservableObject
 			string.Join( ", ", g.Card.Types.Select( CardSearch.TypeName ) ),
 			CardOrder.Cost( g.Card ).ToString(),
 			Coverage( g.Card ) ) ).ToList();
+		All.Clear();
+		foreach ( var item in _all )
+			All.Add( item );
 		Filter();
 	}
 

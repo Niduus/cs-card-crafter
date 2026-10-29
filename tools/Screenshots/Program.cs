@@ -41,6 +41,26 @@ for ( var i = 0; i < names.Length; i++ )
 	Save( main, "window-" + names[i] );
 }
 
+// The card picker: choose a game card from the toolbar's list of the whole cards folder.
+var picker = main.GetVisualDescendantsOfType<ComboBox>().First( c => c.Name == "CardPicker" );
+tabs.SelectedIndex = 0;
+picker.SelectedItem = vm.Browse.All.FirstOrDefault( i => i.Name == "Kitharas Moon" ) ?? vm.Browse.All.FirstOrDefault();
+Save( main, "window-picked" );
+Console.WriteLine( $"picker: {vm.Browse.All.Count} cards, editing {vm.Name}, picked {vm.Picked?.Name}" );
+
+// Opening a card must never change it: pick every game card in turn and compare it with its file.
+var changed = new List<string>();
+foreach ( var item in vm.Browse.All.ToList() )
+{
+	picker.SelectedItem = vm.Browse.All.First( i => i.Game.Path == item.Game.Path );
+	Pump();
+	if ( CardFile.Write( vm.Card ) != CardFile.Write( CardFile.Load( item.Game.Path ) ) || vm.Dirty )
+		changed.Add( item.Name );
+}
+Console.WriteLine( changed.Count == 0 ? "every card opens unchanged" : $"{changed.Count} cards changed on opening: {string.Join( ", ", changed.Take( 20 ) )}" );
+picker.SelectedItem = vm.Browse.All.FirstOrDefault( i => i.Name == "Kitharas Moon" );
+Save( main, "window-picked" );
+
 // Card faces of a few game cards, next to each other.
 var wanted = args.Skip( 1 ).DefaultIfEmpty( "Glacier Heart,Kitharas Moon,Luminous the Curious,Borealis the Creation Dragon of Ice,Healing Blade" ).First().Split( ',' );
 var game = vm.Game;
