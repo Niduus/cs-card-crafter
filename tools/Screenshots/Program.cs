@@ -61,6 +61,25 @@ Console.WriteLine( changed.Count == 0 ? "every card opens unchanged" : $"{change
 picker.SelectedItem = vm.Browse.All.FirstOrDefault( i => i.Name == "Kitharas Moon" );
 Save( main, "window-picked" );
 
+// Edits redraw the face straight away.
+var faceView = main.GetVisualDescendantsOfType<CardFaceView>().First();
+var before = faceView.Revision;
+vm.Name = "Kitharas Moon Edited";
+vm.Combat = "999";
+Pump();
+Console.WriteLine( $"face revision {before} -> {faceView.Revision}, card name on face {faceView.Card?.Name}, combat in text: {vm.Description.Contains( "Combat: 999" )}, note: {vm.TextNote}" );
+Save( main, "window-edited" );
+
+// No game folder yet: the picker asks for it; opening a card from the game's folder finds the game.
+var gameRoot = vm.Game.Root;
+vm.SetGame( null );
+Save( main, "window-no-game" );
+vm.OpenFile( Path.Combine( gameRoot, "Assets", "cards", "series", "kitharas_moon.cscard" ) );
+Console.WriteLine( $"after Open: game {(vm.Game is null ? "none" : "found")}, {vm.Browse.All.Count} cards, picked {vm.Picked?.Name}" );
+vm.SetGame( null );
+vm.TrySetGame( Path.Combine( gameRoot, "Assets", "cards" ) );
+Console.WriteLine( $"cards folder as game folder: {(vm.Game is null ? "none" : "found")}, {vm.Browse.All.Count} cards" );
+
 // Card faces of a few game cards, next to each other.
 var wanted = args.Skip( 1 ).DefaultIfEmpty( "Glacier Heart,Kitharas Moon,Luminous the Curious,Borealis the Creation Dragon of Ice,Healing Blade" ).First().Split( ',' );
 var game = vm.Game;

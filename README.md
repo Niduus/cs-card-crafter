@@ -38,7 +38,7 @@ A card opened from the game (the card picker, or Browse, **Open to edit**) is wr
 
 ## Editing the game's cards
 
-The card picker at the top left lists every card file in the game's `Assets/cards` folder, every collection, in the game's order. Pick one (or type the first letters of its name) and it opens for editing; **Save** writes it back to its own file. If the card you're leaving has unsaved changes, the crafter asks first. Opening a card never changes it: only your edits do.
+The card picker at the top left lists every card file in the game's `Assets/cards` folder, every collection, in the game's order. Until the crafter knows where the game is, the picker is a **Choose the game folder…** button: pick your chaos_spells_sbox folder or its Assets/cards folder. Opening any card from inside the game sets it too. Pick one (or type the first letters of its name) and it opens for editing; **Save** writes it back to its own file. If the card you're leaving has unsaved changes, the crafter asks first. Opening a card never changes it: only your edits do. Game cards keep their hand-written text, so when you change a value such as Combat, the old number in the text is changed with it where it's unmistakable ("Combat: 600", or a number that appears once); otherwise a note under the face says to change the text on the Text tab.
 
 ## How it works
 

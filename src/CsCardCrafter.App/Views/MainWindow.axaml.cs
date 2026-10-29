@@ -66,7 +66,7 @@ public partial class MainWindow : Window
 
 	async void GameFolder_Click( object sender, RoutedEventArgs e )
 	{
-		var folders = await StorageProvider.OpenFolderPickerAsync( new FolderPickerOpenOptions { Title = "Choose your chaos_spells_sbox folder" } );
+		var folders = await StorageProvider.OpenFolderPickerAsync( new FolderPickerOpenOptions { Title = "Choose your chaos_spells_sbox folder (or its Assets/cards folder)" } );
 		if ( folders.Count > 0 && folders[0].TryGetLocalPath() is { } path )
 			Vm.TrySetGame( path );
 	}

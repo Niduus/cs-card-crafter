@@ -67,6 +67,7 @@ public sealed partial class MainViewModel : ObservableObject
 	{
 		Game = game;
 		Images.Game = game;
+		OnPropertyChanged( nameof( HasGame ) );
 		GameStatus = game is null ? "Chaos Spells game folder not found. Choose it to see art and cards." : $"Game: {game.Root}";
 		if ( game is not null )
 		{
@@ -78,12 +79,15 @@ public sealed partial class MainViewModel : ObservableObject
 		Revision++;
 	}
 
+	public bool HasGame => Game is not null;
+
 	public bool TrySetGame( string folder )
 	{
-		var game = GameFolder.At( folder );
+		// Any folder inside the game works too (Assets/cards, a collection folder): the game is found above it.
+		var game = GameFolder.At( folder ) ?? GameFolder.Find( folder );
 		if ( game is null )
 		{
-			Status = $"{folder} isn't a Chaos Spells game folder (it has no {GameFolder.ProjectFile}).";
+			Status = $"Couldn't find the Chaos Spells game in {folder} or above it (no {GameFolder.ProjectFile}). Choose your chaos_spells_sbox folder.";
 			return false;
 		}
 		SetGame( game );
@@ -112,6 +116,7 @@ public sealed partial class MainViewModel : ObservableObject
 		Renumber();
 		CardChanged();
 		Dirty = false;
+		TextNote = "";
 		SyncPicked();
 	}
 
@@ -127,6 +132,11 @@ public sealed partial class MainViewModel : ObservableObject
 		try
 		{
 			var card = CardFile.Load( path );
+			// A card opened from inside the game (Assets/cards/...) also sets the game folder, which fills the card
+			// picker and gives the face its art and icons.
+			if ( (Game is null || !Path.GetFullPath( path ).StartsWith( Path.GetFullPath( Game.Root ), StringComparison.OrdinalIgnoreCase ))
+				&& GameFolder.Find( Path.GetDirectoryName( Path.GetFullPath( path ) ) ) is { } found )
+				SetGame( found );
 			var inGame = Game is not null && Path.GetFullPath( path ).StartsWith( Path.GetFullPath( Game.CardsFolder ), StringComparison.OrdinalIgnoreCase );
 			// A card that already has text keeps it, as written (oracle law: the designer's wording wins).
 			Load( card, path, inGame ? path : null, autoText: string.IsNullOrWhiteSpace( card.Description ) );
@@ -283,7 +293,11 @@ public sealed partial class MainViewModel : ObservableObject
 
 	public void EffectsChanged() => CardChanged();
 
-	partial void OnAutoTextChanged( bool value ) => CardChanged();
+	partial void OnAutoTextChanged( bool value )
+	{
+		if ( value ) TextNote = "";
+		CardChanged();
+	}
 	partial void OnDirtyChanged( bool value ) => OnPropertyChanged( nameof( Title ) );
 
 	/// <summary>The description the effects would write, shown next to a hand-typed one.</summary>
@@ -392,6 +406,41 @@ public sealed partial class MainViewModel : ObservableObject
 		return true;
 	}
 
+	/// <summary>
+	/// A printed value (Combat, Shield, Anchored...): when the card's text is written by hand, the old number in the
+	/// text changes with it, so the face shows the new value. It is changed only where it can't be mistaken:
+	/// "Combat: 600" for Combat, otherwise the number when it appears exactly once. Anything else is left to the
+	/// designer, with a note under the face.
+	/// </summary>
+	bool SetValue<T>( T current, T value, Action<T> write, string lead = null, [CallerMemberName] string name = null )
+	{
+		if ( !Set( current, value, write, name: name ) )
+			return false;
+		var from = Convert.ToString( current, System.Globalization.CultureInfo.InvariantCulture ) ?? "";
+		var to = Convert.ToString( value, System.Globalization.CultureInfo.InvariantCulture ) ?? "";
+		if ( AutoText || string.IsNullOrWhiteSpace( from ) || from == "0" || string.IsNullOrEmpty( Card.Description ) )
+			return true;
+		var text = Card.Description;
+		var number = $@"(?<![\d.,]){System.Text.RegularExpressions.Regex.Escape( from )}(?![\d%])";
+		string updated = null;
+		if ( lead is not null && System.Text.RegularExpressions.Regex.Matches( text, System.Text.RegularExpressions.Regex.Escape( lead ) + number ).Count == 1 )
+			updated = System.Text.RegularExpressions.Regex.Replace( text, System.Text.RegularExpressions.Regex.Escape( lead ) + number, lead + to );
+		else if ( System.Text.RegularExpressions.Regex.Matches( text, number ).Count == 1 )
+			updated = System.Text.RegularExpressions.Regex.Replace( text, number, to );
+		if ( updated is null )
+		{
+			TextNote = $"The card's text is written by hand and couldn't be matched to {from}: change it on the Text tab, or tick \"Write the card text from the effects\".";
+			return true;
+		}
+		Card.Description = updated;
+		OnPropertyChanged( nameof( Description ) );
+		CardChanged();
+		return true;
+	}
+
+	/// <summary>Shown under the face when an edit couldn't reach the hand-written text.</summary>
+	[ObservableProperty] string _textNote = "";
+
 	public string Name { get => Card?.Name ?? ""; set => Set( Name, value ?? "", v => Card.Name = v ); }
 	public int Id { get => Card?.Id ?? 0; set => Set( Id, value, v => Card.Id = v ); }
 	public string Mastery { get => Card?.Mastery ?? ""; set => Set( Mastery, value, v => Card.Mastery = v, look: true ); }
@@ -414,20 +463,20 @@ public sealed partial class MainViewModel : ObservableObject
 
 	public DeckKind Deck { get => Card?.Deck ?? DeckKind.Main; set => Set( Deck, value, v => Card.Deck = v, look: true ); }
 	public int MaxCopies { get => Card?.MaxCopies ?? 0; set => Set( MaxCopies, value, v => Card.MaxCopies = v ); }
-	public string Combat { get => Card?.Combat ?? ""; set => Set( Combat, value ?? "", v => Card.Combat = v ); }
+	public string Combat { get => Card?.Combat ?? ""; set => SetValue( Combat, value ?? "", v => Card.Combat = v, "Combat: " ); }
 	public CombatTarget CombatTarget { get => Card?.CombatTarget ?? default; set => Set( CombatTarget, value, v => Card.CombatTarget = v ); }
-	public int BladeValue { get => Card?.BladeValue ?? 0; set => Set( BladeValue, value, v => Card.BladeValue = v ); }
-	public int MantleValue { get => Card?.MantleValue ?? 0; set => Set( MantleValue, value, v => Card.MantleValue = v ); }
-	public int ShieldValue { get => Card?.ShieldValue ?? 0; set => Set( ShieldValue, value, v => Card.ShieldValue = v ); }
-	public int TrapValue { get => Card?.TrapValue ?? 0; set => Set( TrapValue, value, v => Card.TrapValue = v ); }
-	public int LifestealFlat { get => Card?.LifestealFlat ?? 0; set => Set( LifestealFlat, value, v => Card.LifestealFlat = v ); }
-	public int LifestealPercent { get => Card?.LifestealPercent ?? 0; set => Set( LifestealPercent, value, v => Card.LifestealPercent = v ); }
+	public int BladeValue { get => Card?.BladeValue ?? 0; set => SetValue( BladeValue, value, v => Card.BladeValue = v ); }
+	public int MantleValue { get => Card?.MantleValue ?? 0; set => SetValue( MantleValue, value, v => Card.MantleValue = v ); }
+	public int ShieldValue { get => Card?.ShieldValue ?? 0; set => SetValue( ShieldValue, value, v => Card.ShieldValue = v ); }
+	public int TrapValue { get => Card?.TrapValue ?? 0; set => SetValue( TrapValue, value, v => Card.TrapValue = v ); }
+	public int LifestealFlat { get => Card?.LifestealFlat ?? 0; set => SetValue( LifestealFlat, value, v => Card.LifestealFlat = v ); }
+	public int LifestealPercent { get => Card?.LifestealPercent ?? 0; set => SetValue( LifestealPercent, value, v => Card.LifestealPercent = v ); }
 
 	/// <summary>A Spirit card's point cost for the Spirit Deck ("2"), up to 6 points a deck.</summary>
 	public string SpiritLimit { get => Card?.SpiritLimit ?? ""; set => Set( SpiritLimit, value ?? "", v => Card.SpiritLimit = v ); }
 	public int SpiritUses { get => Card?.SpiritUses ?? 0; set => Set( SpiritUses, value, v => Card.SpiritUses = v ); }
 	public bool PermanentAnchored { get => Card?.PermanentAnchored ?? false; set => Set( PermanentAnchored, value, v => Card.PermanentAnchored = v ); }
-	public int AnchoredRounds { get => Card?.AnchoredRounds ?? 0; set => Set( AnchoredRounds, value, v => Card.AnchoredRounds = v ); }
+	public int AnchoredRounds { get => Card?.AnchoredRounds ?? 0; set => SetValue( AnchoredRounds, value, v => Card.AnchoredRounds = v ); }
 	public string Keywords { get => string.Join( ", ", Card?.Keywords ?? new() ); set => Set( Keywords, value ?? "", v => Card.Keywords = SplitList( v ) ); }
 	public string Series { get => string.Join( ", ", Card?.Series ?? new() ); set => Set( Series, value ?? "", v => Card.Series = SplitList( v ) ); }
 	public bool OnlyOne { get => !string.IsNullOrEmpty( Card?.OnlyIcon ); set => Set( OnlyOne, value, v => Card.OnlyIcon = v ? CardParts.OnlyOneIcon : "" ); }
@@ -445,7 +494,7 @@ public sealed partial class MainViewModel : ObservableObject
 		set
 		{
 			if ( value == Description ) return;
-			if ( !_loading ) AutoText = false;
+			if ( !_loading ) { AutoText = false; TextNote = ""; }
 			Set( Description, value ?? "", v => Card.Description = v );
 		}
 	}
