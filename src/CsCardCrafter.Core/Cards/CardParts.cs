@@ -77,16 +77,14 @@ public static class CardParts
 		{
 			Name = "New Card",
 			Mastery = mastery,
-			Collection = GameFolder.CustomCollection,
-			IsCustom = true,
 			Types = new() { "Damage" },
 			Deck = DeckKind.Main,
 			MaxCopies = 3,
 			Costs = new() { new CardCost { Icon = Costs[0].Icon, Amount = "1" } },
 			Combat = "100",
 			CombatTarget = CombatTarget.Enemy,
-			FooterLeft = $"Reg. @Frozen Lakes - {DateTime.Now.Year}\nSet: Custom / Version 1.0",
-			FooterRight = "Design Credit: \nImage Credit: ",
+			FooterLeft = $"Reg. @Frozen Lakes - {DateTime.Now.Year}\nSet: A.0 / Version 1.0",
+			FooterRight = "Design Credit: Niduus\nImage Credit: ",
 			Effects = new()
 			{
 				new CardEffect

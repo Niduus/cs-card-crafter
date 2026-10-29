@@ -26,8 +26,6 @@ public static class CardChecks
 			Problem( "Pick a card type." );
 		if ( card.IsDev )
 			Warn( "Dev cards never reach play (decks and random deals skip them)." );
-		if ( card.Id <= 0 )
-			Warn( "The card has no ID yet, so the game treats it as unfinished and keeps it out of play. Give it an ID above 0." );
 		if ( card.Costs.Count > 3 )
 			Problem( "The card face shows at most 3 costs." );
 		foreach ( var cost in card.Costs.Where( c => string.IsNullOrWhiteSpace( c.Amount ) ) )

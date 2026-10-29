@@ -21,7 +21,20 @@ icons from there and installs new cards into it.
    (or `git submodule update --init` in an existing clone).
 2. Run it: `dotnet run --project src/CsCardCrafter.App` (needs the .NET 8 SDK).
 3. It finds the game in `external/chaos_spells_sbox`. Use **Game folder…** to point it at your own
-   `chaos_spells_sbox` checkout instead, so **Install into game** writes into the project you open in s&box.
+   `chaos_spells_sbox` checkout instead, so **Add to game** writes into the project you open in s&box.
+
+## Adding cards to the game
+
+**Add to game** makes the card an official game card, with nothing to move by hand:
+
+- the card file goes in its collection folder beside the game's own cards, `Assets/cards/<collection>/<name>.cscard`
+  (by Mastery, or `spirit`, `quickcast`, `fusion`, `series`);
+- a new card gets the next free card ID (regular cards count up from the highest; Spirit and Fusion cards use 10000+);
+- its artwork is copied into `Assets/cards/art`;
+- the project's export list is checked for `cards/*` (and put back if the editor lost it);
+- with **Commit to git** ticked, the card and its art are committed in the game folder, ready to push.
+
+A card opened from the game (Browse, **Open to edit**) is written back where it is, keeping its ID.
 
 ## How it works
 

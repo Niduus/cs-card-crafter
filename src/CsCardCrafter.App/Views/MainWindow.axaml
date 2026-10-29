@@ -20,8 +20,9 @@
 					<Button Content="Save" Click="Save_Click" ToolTip.Tip="Save the card file" />
 					<Button Content="Save as…" Click="SaveAs_Click" />
 					<Button Content="Choose artwork…" Click="Artwork_Click" />
-					<Button Content="Install into game" Command="{Binding InstallCommand}" Classes="accent"
-					        ToolTip.Tip="Write the card (and its art) into your Chaos Spells folder: Assets/cards/custom for new cards" />
+					<Button Content="Add to game" Command="{Binding InstallCommand}" Classes="accent"
+					        ToolTip.Tip="Adds the card to the game as an official card: its collection folder, the next free ID, its art in Assets/cards/art" />
+					<CheckBox IsChecked="{Binding CommitToGit}" Content="Commit to git" ToolTip.Tip="Also commit the card to the game folder's git, ready to push" />
 				</StackPanel>
 				<StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" DockPanel.Dock="Right">
 					<TextBlock Text="{Binding GameStatus}" VerticalAlignment="Center" Opacity="0.7" FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="520" />
@@ -349,7 +350,7 @@
 					<StackPanel Grid.Column="2" Spacing="8">
 						<v:CardFaceView Card="{Binding Browse.Selected.Card}" Width="300" />
 						<Button Content="Open to edit" Command="{Binding OpenSelectedCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-						        ToolTip.Tip="Edit this game card; Install writes it back in place" />
+						        ToolTip.Tip="Edit this game card; Add to game writes it back in place" />
 						<Button Content="New card from this one" Command="{Binding CopySelectedCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
 					</StackPanel>
 				</Grid>

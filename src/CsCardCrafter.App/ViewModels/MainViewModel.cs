@@ -147,8 +147,7 @@ public sealed partial class MainViewModel : ObservableObject
 		var copy = CardFile.Copy( item.Card );
 		copy.Name = item.Card.Name + " (copy)";
 		copy.Id = 0;
-		copy.IsCustom = true;
-		copy.Collection = GameFolder.CustomCollection;
+		copy.Collection = "";
 		Load( copy, null, null, autoText: false );
 		Dirty = true;
 		Status = $"New card from {item.Card.Name}.";
@@ -173,7 +172,13 @@ public sealed partial class MainViewModel : ObservableObject
 		}
 	}
 
-	/// <summary>Writes the card and its art into the game folder (Assets/cards/custom for new cards), like Install into Omega.</summary>
+	/// <summary>On: "Add to game" also commits the card to the game folder's git, ready to push.</summary>
+	[ObservableProperty] bool _commitToGit = true;
+
+	/// <summary>
+	/// Adds the card to the game as an official card: its collection folder, the next free ID, its art copied into
+	/// Assets/cards/art and the export list checked. Optionally commits it to the game's git.
+	/// </summary>
 	[RelayCommand]
 	void Install()
 	{
@@ -185,22 +190,34 @@ public sealed partial class MainViewModel : ObservableObject
 		try
 		{
 			PrepareForSave();
-			var art = Path.IsPathRooted( Card.Artwork ?? "" ) ? Card.Artwork : null;
-			var path = Game.Install( Card, art, GamePath );
-			var installed = CardFile.Load( path );
-			Card.Artwork = installed.Artwork;
-			Card.IsCustom = installed.IsCustom;
-			Card.Collection = installed.Collection;
-			GamePath = path;
-			FilePath ??= path;
+			var result = Game.Publish( Card, GamePath );
+			_loading = true;
+			Card.Id = result.Card.Id;
+			Card.Collection = result.Card.Collection;
+			Card.IsCustom = false;
+			Card.Artwork = result.Card.Artwork;
+			_loading = false;
+			OnPropertyChanged( nameof( Id ) );
+			OnPropertyChanged( nameof( Artwork ) );
+			GamePath = result.CardFile;
+			FilePath = result.CardFile;
 			Browse.Load( Game );
-			Dirty = false;
+			var note = $"Added to the game as #{result.Card.Id} in {result.Card.Collection}: {Game.AssetPath( result.CardFile )}.";
+			if ( result.ExportListFixed )
+				note += " The project's export list had lost cards/*, so it was put back.";
+			if ( CommitToGit )
+			{
+				var git = Game.Commit( result );
+				note += git is null ? " (No git found, so nothing was committed.)" : " Committed to the game's git; push it when you're ready.";
+			}
 			CardChanged();
-			Status = $"Installed into the game: {Game.AssetPath( path )}.";
+			Dirty = false;
+			Status = note;
 		}
 		catch ( Exception e )
 		{
-			Status = $"Couldn't install: {e.Message}";
+			_loading = false;
+			Status = $"Couldn't add it to the game: {e.Message}";
 		}
 	}
 
