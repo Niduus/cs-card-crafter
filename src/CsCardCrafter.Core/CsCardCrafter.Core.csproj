@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!--
+		The crafter's engine: no UI. It compiles the game's own card model, card text rules and effect blocks straight
+		from the chaos_spells_sbox submodule (as the game's tools/CoreChecks does), so the crafter and the game always
+		agree on what a block is called, how it reads and what it does. Game/SandboxStubs.cs stands in for the few
+		s&box attributes those files use.
+	-->
+	<PropertyGroup>
+		<RootNamespace>CsCardCrafter.Core</RootNamespace>
+		<!-- Same global usings as s&box, so the game's files compile unchanged. -->
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<NoWarn>$(NoWarn);CS8632</NoWarn>
+	</PropertyGroup>
+	<ItemGroup>
+		<Using Include="System" />
+		<Using Include="System.Collections.Generic" />
+		<Using Include="System.Linq" />
+	</ItemGroup>
+	<ItemGroup>
+		<Compile Include="$(GameRoot)Code/Cards/*.cs" Exclude="$(GameRoot)Code/Cards/CardLibrary.cs" LinkBase="Game/Code/Cards" />
+		<Compile Include="$(GameRoot)Code/Board/*.cs" LinkBase="Game/Code/Board" />
+		<Compile Include="$(GameRoot)Code/Rules/**/*.cs" LinkBase="Game/Code/Rules" />
+		<Compile Include="$(GameRoot)Code/Decks/DeckList.cs" LinkBase="Game/Code/Decks" />
+	</ItemGroup>
+</Project>

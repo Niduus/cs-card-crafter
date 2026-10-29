@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!--
+		Renders the crafter without a screen (Avalonia headless + Skia) and saves PNGs: the main window on each tab and
+		card faces for a few game cards. Used to check the card face against the game's without opening the app.
+		From the repo root: dotnet run, pointing at tools/Screenshots, with an output folder.
+	-->
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Avalonia.Headless" Version="11.2.3" />
+		<PackageReference Include="Avalonia.Skia" Version="11.2.3" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\CsCardCrafter.App\CsCardCrafter.App.csproj" />
+	</ItemGroup>
+</Project>

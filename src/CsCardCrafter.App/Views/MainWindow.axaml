@@ -1,0 +1,357 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CsCardCrafter.App.ViewModels"
+        xmlns:v="using:CsCardCrafter.App.Views"
+        xmlns:cards="using:CsCardCrafter.Core.Cards"
+        xmlns:checks="using:CsCardCrafter.Core.Checks"
+        x:Class="CsCardCrafter.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding Title}"
+        Width="1500" Height="920" MinWidth="1000" MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+
+	<DockPanel>
+		<!-- Toolbar -->
+		<Border DockPanel.Dock="Top" Background="#1AFFFFFF" Padding="8,6">
+			<DockPanel>
+				<StackPanel Orientation="Horizontal" Spacing="6">
+					<Button Content="New" Command="{Binding NewCommand}" ToolTip.Tip="Start a new card" />
+					<Button Content="Open…" Click="Open_Click" ToolTip.Tip="Open a .cscard file" />
+					<Button Content="Save" Click="Save_Click" ToolTip.Tip="Save the card file" />
+					<Button Content="Save as…" Click="SaveAs_Click" />
+					<Button Content="Choose artwork…" Click="Artwork_Click" />
+					<Button Content="Install into game" Command="{Binding InstallCommand}" Classes="accent"
+					        ToolTip.Tip="Write the card (and its art) into your Chaos Spells folder: Assets/cards/custom for new cards" />
+				</StackPanel>
+				<StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" DockPanel.Dock="Right">
+					<TextBlock Text="{Binding GameStatus}" VerticalAlignment="Center" Opacity="0.7" FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="520" />
+					<Button Content="Game folder…" Click="GameFolder_Click" Classes="small" />
+				</StackPanel>
+			</DockPanel>
+		</Border>
+
+		<!-- Status bar -->
+		<Border DockPanel.Dock="Bottom" Background="#12FFFFFF" Padding="10,4">
+			<TextBlock Text="{Binding Status}" FontSize="12" Opacity="0.8" />
+		</Border>
+
+		<!-- Live preview, always on the right -->
+		<Border DockPanel.Dock="Right" Width="420" Background="#0CFFFFFF" Padding="12">
+			<DockPanel>
+				<ScrollViewer DockPanel.Dock="Bottom" MaxHeight="230" Margin="0,10,0,0">
+					<StackPanel>
+						<TextBlock Classes="h" Text="Checks" Margin="0,0,0,4" />
+						<TextBlock Classes="hint" Text="Nothing to fix." IsVisible="{Binding !Checks.Count}" />
+						<ItemsControl ItemsSource="{Binding Checks}">
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="checks:CheckResult">
+									<TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,4"
+									           Foreground="{Binding Level, Converter={x:Static v:Converters.CheckBrush}}" />
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+					</StackPanel>
+				</ScrollViewer>
+				<v:CardFaceView Card="{Binding Card}" Revision="{Binding Revision}" VerticalAlignment="Top" />
+			</DockPanel>
+		</Border>
+
+		<TabControl Margin="6,0,0,0">
+			<!-- ============ Card ============ -->
+			<TabItem Header="Card">
+				<ScrollViewer>
+					<StackPanel Margin="8" MaxWidth="900" HorizontalAlignment="Left">
+						<TextBlock Classes="h" Text="Identity" />
+						<Grid ColumnDefinitions="150,*,24,150,*" RowDefinitions="Auto,Auto,Auto,Auto" Classes="form">
+							<TextBlock Classes="label" Text="Name" />
+							<TextBox Grid.Column="1" Text="{Binding Name}" Watermark="Card name" />
+							<TextBlock Grid.Column="3" Classes="label" Text="ID" />
+							<NumericUpDown Grid.Column="4" Value="{Binding Id}" Minimum="0" Maximum="999999" FormatString="0" ToolTip.Tip="Above 0 for a playable card; the game skips cards with no ID" />
+
+							<TextBlock Grid.Row="1" Classes="label" Text="Mastery" />
+							<ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{x:Static vm:MainViewModel.Masteries}" SelectedItem="{Binding Mastery}" HorizontalAlignment="Stretch" />
+							<TextBlock Grid.Row="1" Grid.Column="3" Classes="label" Text="Duo Masteries" />
+							<TextBox Grid.Row="1" Grid.Column="4" Text="{Binding DuoMasteries}" Watermark="e.g. Crimson, Life" ToolTip.Tip="Duo cards count as both; their Combat hits in the last one" />
+
+							<TextBlock Grid.Row="2" Classes="label" Text="Card type" />
+							<ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static vm:MainViewModel.Types}" SelectedItem="{Binding CardType}" HorizontalAlignment="Stretch">
+								<ComboBox.ItemTemplate>
+									<DataTemplate x:DataType="cards:CardTypeInfo">
+										<TextBlock Text="{Binding Label}" />
+									</DataTemplate>
+								</ComboBox.ItemTemplate>
+							</ComboBox>
+							<TextBlock Grid.Row="2" Grid.Column="3" Classes="label" Text="Also counts as" />
+							<TextBox Grid.Row="2" Grid.Column="4" Text="{Binding ExtraTypes}" Watermark="more types, e.g. Token" />
+
+							<TextBlock Grid.Row="3" Classes="label" Text="Series" />
+							<TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Series}" Watermark="e.g. Knight, Kitharas" ToolTip.Tip="Series make the card a &quot;Knight&quot; card for tutors and counts" />
+							<TextBlock Grid.Row="3" Grid.Column="3" Classes="label" Text="Dev card" />
+							<CheckBox Grid.Row="3" Grid.Column="4" IsChecked="{Binding IsDev}" Content="Never reaches play" />
+						</Grid>
+
+						<TextBlock Classes="h" Text="Deck and costs" />
+						<Grid ColumnDefinitions="150,*,24,150,*" RowDefinitions="Auto,Auto,Auto" Classes="form">
+							<TextBlock Classes="label" Text="Deck" />
+							<ComboBox Grid.Column="1" ItemsSource="{x:Static vm:MainViewModel.Decks}" SelectedItem="{Binding Deck}" HorizontalAlignment="Stretch" />
+							<TextBlock Grid.Column="3" Classes="label" Text="Copy limit" />
+							<NumericUpDown Grid.Column="4" Value="{Binding MaxCopies}" Minimum="0" Maximum="9" FormatString="0" />
+
+							<TextBlock Grid.Row="1" Classes="label" Text="Spirit points" />
+							<TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SpiritLimit}" Watermark="Spirit cards: 1 to 6" />
+							<TextBlock Grid.Row="1" Grid.Column="3" Classes="label" Text="Spirit uses" />
+							<NumericUpDown Grid.Row="1" Grid.Column="4" Value="{Binding SpiritUses}" Minimum="0" Maximum="99" FormatString="0" />
+
+							<TextBlock Grid.Row="2" Classes="label" Text="Face marks" />
+							<StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="16">
+								<CheckBox IsChecked="{Binding OnlyOne}" Content="Only one" />
+								<CheckBox IsChecked="{Binding NoReshuffle}" Content="No reshuffle" />
+								<CheckBox IsChecked="{Binding FusionMark}" Content="Fusion" />
+							</StackPanel>
+						</Grid>
+						<StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,4">
+							<TextBlock Classes="label" Text="Costs (up to 3, shown under the crest)" />
+							<Button Classes="small" Content="+ Add cost" Command="{Binding AddCostCommand}" />
+						</StackPanel>
+						<ItemsControl ItemsSource="{Binding Costs}">
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:CostViewModel">
+									<StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+										<ComboBox ItemsSource="{x:Static vm:CostViewModel.Kinds}" SelectedItem="{Binding Kind}" Width="180">
+											<ComboBox.ItemTemplate>
+												<DataTemplate x:DataType="cards:CostKind">
+													<TextBlock Text="{Binding Label}" />
+												</DataTemplate>
+											</ComboBox.ItemTemplate>
+										</ComboBox>
+										<TextBox Text="{Binding Amount}" Width="90" Watermark="0" />
+										<Button Classes="small" Content="✕" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove this cost" />
+									</StackPanel>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+
+						<TextBlock Classes="h" Text="Combat and values" />
+						<Grid ColumnDefinitions="150,*,24,150,*" RowDefinitions="Auto,Auto,Auto,Auto" Classes="form">
+							<TextBlock Classes="label" Text="Combat" />
+							<TextBox Grid.Column="1" Text="{Binding Combat}" Watermark="e.g. 650 or X" />
+							<TextBlock Grid.Column="3" Classes="label" Text="Combat hits" />
+							<ComboBox Grid.Column="4" ItemsSource="{x:Static vm:MainViewModel.CombatTargets}" SelectedItem="{Binding CombatTarget}" HorizontalAlignment="Stretch" />
+
+							<TextBlock Grid.Row="1" Classes="label" Text="Blade / Mantle" />
+							<StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+								<NumericUpDown Value="{Binding BladeValue}" Minimum="-99999" Maximum="99999" FormatString="0" Width="130" />
+								<NumericUpDown Value="{Binding MantleValue}" Minimum="-99999" Maximum="99999" FormatString="0" Width="130" />
+							</StackPanel>
+							<TextBlock Grid.Row="1" Grid.Column="3" Classes="label" Text="Shield / Trap" />
+							<StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="6">
+								<NumericUpDown Value="{Binding ShieldValue}" Minimum="-99999" Maximum="99999" FormatString="0" Width="130" />
+								<NumericUpDown Value="{Binding TrapValue}" Minimum="-99999" Maximum="99999" FormatString="0" Width="130" />
+							</StackPanel>
+
+							<TextBlock Grid.Row="2" Classes="label" Text="Lifesteal flat / %" />
+							<StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+								<NumericUpDown Value="{Binding LifestealFlat}" Minimum="0" Maximum="99999" FormatString="0" Width="130" />
+								<NumericUpDown Value="{Binding LifestealPercent}" Minimum="0" Maximum="100" FormatString="0" Width="130" />
+							</StackPanel>
+							<TextBlock Grid.Row="2" Grid.Column="3" Classes="label" Text="Anchored" />
+							<StackPanel Grid.Row="2" Grid.Column="4" Orientation="Horizontal" Spacing="8">
+								<CheckBox IsChecked="{Binding PermanentAnchored}" Content="Always" />
+								<NumericUpDown Value="{Binding AnchoredRounds}" Minimum="0" Maximum="99" FormatString="0" Width="120" ToolTip.Tip="Rounds, when not always" />
+							</StackPanel>
+
+							<TextBlock Grid.Row="3" Classes="label" Text="Keywords" />
+							<TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Keywords}" Watermark="e.g. Lifesteal, Anchored, Sturdy" />
+						</Grid>
+
+						<TextBlock Classes="h" Text="Artwork and credits" />
+						<Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" Classes="form">
+							<TextBlock Classes="label" Text="Artwork" />
+							<DockPanel Grid.Column="1">
+								<Button DockPanel.Dock="Right" Content="Choose…" Click="Artwork_Click" Margin="6,0,0,0" />
+								<TextBox Text="{Binding Artwork, Mode=OneWay}" IsReadOnly="True" Watermark="No artwork yet" />
+							</DockPanel>
+							<TextBlock Grid.Row="1" Classes="label" Text="Footer left" />
+							<TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FooterLeft}" AcceptsReturn="True" Height="52" />
+							<TextBlock Grid.Row="2" Classes="label" Text="Footer right" />
+							<TextBox Grid.Row="2" Grid.Column="1" Text="{Binding FooterRight}" AcceptsReturn="True" Height="52" />
+						</Grid>
+					</StackPanel>
+				</ScrollViewer>
+			</TabItem>
+
+			<!-- ============ Effects ============ -->
+			<TabItem Header="Effects">
+				<DockPanel>
+					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="8">
+						<TextBlock Classes="label" Text="Add an effect:" />
+						<Button Classes="small" Content="Combat" Command="{Binding AddEffectCommand}" CommandParameter="Combat" />
+						<Button Classes="small" Content="Hand" Command="{Binding AddEffectCommand}" CommandParameter="Hand" />
+						<Button Classes="small" Content="Field" Command="{Binding AddEffectCommand}" CommandParameter="Field" />
+						<Button Classes="small" Content="Abyss" Command="{Binding AddEffectCommand}" CommandParameter="Abyss" />
+						<Button Classes="small" Content="Void" Command="{Binding AddEffectCommand}" CommandParameter="Void" />
+						<Button Classes="small" Content="Keyword" Command="{Binding AddEffectCommand}" CommandParameter="Keyword" />
+						<Button Classes="small" Content="Other" Command="{Binding AddEffectCommand}" CommandParameter="ImportantTag" />
+					</StackPanel>
+					<ScrollViewer>
+						<ItemsControl ItemsSource="{Binding Effects}" Margin="8,0,8,8">
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:EffectViewModel">
+									<Border Classes="effect">
+										<StackPanel Spacing="6">
+											<DockPanel>
+												<StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Right">
+													<Button Classes="small" Content="▲" Command="{Binding MoveUpCommand}" ToolTip.Tip="Move up" />
+													<Button Classes="small" Content="▼" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move down" />
+													<Button Classes="small" Content="✕" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove this effect" />
+												</StackPanel>
+												<StackPanel Orientation="Horizontal" Spacing="8">
+													<TextBlock Text="{Binding Number, StringFormat='Effect {0}'}" FontWeight="SemiBold" VerticalAlignment="Center" />
+													<ComboBox ItemsSource="{x:Static vm:EffectViewModel.Sections}" SelectedItem="{Binding Section}" ToolTip.Tip="Where the effect works" />
+													<ComboBox ItemsSource="{x:Static vm:EffectViewModel.Usages}" SelectedItem="{Binding Usage}" ToolTip.Tip="How often it can be used" />
+													<ComboBox ItemsSource="{x:Static vm:EffectViewModel.Scopes}" SelectedItem="{Binding UsageScope}" ToolTip.Tip="Who shares that limit: this copy, or every card with this name" />
+												</StackPanel>
+											</DockPanel>
+											<Panel>
+												<ItemsControl ItemsSource="{Binding Slots}">
+													<ItemsControl.ItemsPanel>
+														<ItemsPanelTemplate>
+															<UniformGrid Columns="5" />
+														</ItemsPanelTemplate>
+													</ItemsControl.ItemsPanel>
+													<ItemsControl.ItemTemplate>
+														<DataTemplate x:DataType="vm:SlotViewModel">
+															<Border Classes="slot">
+																<StackPanel Spacing="4">
+																	<TextBlock Text="{Binding Title}" FontWeight="Bold" />
+																	<TextBlock Classes="hint" Text="{Binding Hint}" />
+																	<ItemsControl ItemsSource="{Binding Blocks}">
+																		<ItemsControl.ItemTemplate>
+																			<DataTemplate x:DataType="vm:BlockViewModel">
+																				<Border Classes="block">
+																					<StackPanel Spacing="4">
+																						<DockPanel>
+																							<StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+																								<Button Classes="small" Content="▲" Command="{Binding MoveUpCommand}" />
+																								<Button Classes="small" Content="▼" Command="{Binding MoveDownCommand}" />
+																								<Button Classes="small" Content="✕" Command="{Binding RemoveCommand}" />
+																							</StackPanel>
+																							<TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+																						</DockPanel>
+																						<TextBlock Text="{Binding Reads}" FontStyle="Italic" TextWrapping="Wrap" Opacity="0.85" FontSize="12" />
+																						<ItemsControl ItemsSource="{Binding Params}">
+																							<ItemsControl.ItemTemplate>
+																								<DataTemplate x:DataType="vm:ParamViewModel">
+																									<Grid ColumnDefinitions="80,*" Margin="0,2,0,0">
+																										<TextBlock Classes="label" Text="{Binding Label}" FontSize="12" TextTrimming="CharacterEllipsis" />
+																										<ComboBox Grid.Column="1" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value}" IsVisible="{Binding HasChoices}" HorizontalAlignment="Stretch" FontSize="12" />
+																										<TextBox Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding !HasChoices}" FontSize="12" MinHeight="26" Padding="4,2" />
+																									</Grid>
+																								</DataTemplate>
+																							</ItemsControl.ItemTemplate>
+																						</ItemsControl>
+																					</StackPanel>
+																				</Border>
+																			</DataTemplate>
+																		</ItemsControl.ItemTemplate>
+																	</ItemsControl>
+																	<Button Classes="small" Content="+ Add" Click="AddBlock_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+																</StackPanel>
+															</Border>
+														</DataTemplate>
+													</ItemsControl.ItemTemplate>
+												</ItemsControl>
+											</Panel>
+											<TextBlock Classes="hint" Text="Card text (leave empty to print the suggestion)" Margin="0,4,0,0" />
+											<TextBox Text="{Binding Text}" AcceptsReturn="True" TextWrapping="Wrap" Watermark="{Binding Suggested}" />
+											<DockPanel IsVisible="{Binding !UsesSuggestion}">
+												<Button DockPanel.Dock="Right" Classes="small" Content="Use suggested" Command="{Binding UseSuggestedCommand}" />
+												<TextBlock Classes="hint" Text="{Binding Suggested, StringFormat='Suggested from the blocks: {0}'}" />
+											</DockPanel>
+										</StackPanel>
+									</Border>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+					</ScrollViewer>
+				</DockPanel>
+			</TabItem>
+
+			<!-- ============ Text ============ -->
+			<TabItem Header="Text">
+				<Grid ColumnDefinitions="*,12,320" Margin="8">
+					<DockPanel>
+						<StackPanel DockPanel.Dock="Top" Spacing="6">
+							<CheckBox IsChecked="{Binding AutoText}" Content="Write the card text from the effects" />
+							<TextBlock Classes="hint" Text="Each effect is one {BEG}…{END} paragraph. Shorthand works as in the game: [name], [Opt], [opr], [qc], [pcc]. Typing here turns automatic text off." />
+							<Button Classes="small" Content="Write it from the effects now" Command="{Binding WriteTextFromEffectsCommand}" />
+						</StackPanel>
+						<TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,8,0,0" FontFamily="Consolas,Menlo,monospace" />
+					</DockPanel>
+					<ScrollViewer Grid.Column="2">
+						<StackPanel>
+							<TextBlock Classes="h" Text="Keywords on this card" Margin="0,0,0,6" />
+							<TextBlock Classes="hint" Text="None yet." IsVisible="{Binding !KeywordHelp.Count}" />
+							<ItemsControl ItemsSource="{Binding KeywordHelp}">
+								<ItemsControl.ItemTemplate>
+									<DataTemplate x:DataType="vm:KeywordInfo">
+										<StackPanel Margin="0,0,0,10">
+											<TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+											<TextBlock Text="{Binding Meaning}" TextWrapping="Wrap" FontSize="12" Opacity="0.85" />
+										</StackPanel>
+									</DataTemplate>
+								</ItemsControl.ItemTemplate>
+							</ItemsControl>
+						</StackPanel>
+					</ScrollViewer>
+				</Grid>
+			</TabItem>
+
+			<!-- ============ Data ============ -->
+			<TabItem Header="Data">
+				<DockPanel Margin="8">
+					<TextBlock DockPanel.Dock="Top" Classes="hint" Text="The .cscard file exactly as it will be saved." Margin="0,0,0,6" />
+					<TextBox Text="{Binding Json, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+				</DockPanel>
+			</TabItem>
+
+			<!-- ============ Browse ============ -->
+			<TabItem Header="Browse">
+				<Grid ColumnDefinitions="*,12,300" Margin="8">
+					<DockPanel>
+						<DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+							<TextBlock DockPanel.Dock="Right" Text="{Binding Browse.Summary}" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0.7" />
+							<TextBox Text="{Binding Browse.Query}" Watermark="Search the game's cards: name, text, mastery, type…" ToolTip.Tip="{Binding Browse.SearchHelp}" />
+						</DockPanel>
+						<Grid DockPanel.Dock="Top" ColumnDefinitions="*,110,130,60,70" Margin="12,0,12,4" Opacity="0.7">
+							<TextBlock Text="Name" />
+							<TextBlock Grid.Column="1" Text="Mastery" />
+							<TextBlock Grid.Column="2" Text="Type" />
+							<TextBlock Grid.Column="3" Text="Mana" />
+							<TextBlock Grid.Column="4" Text="Blocks" ToolTip.Tip="Effects the game already runs on blocks, out of the card's effects" />
+						</Grid>
+						<ListBox ItemsSource="{Binding Browse.Results}" SelectedItem="{Binding Browse.Selected}" DoubleTapped="Browse_DoubleTapped">
+							<ListBox.ItemTemplate>
+								<DataTemplate x:DataType="vm:BrowseItem">
+									<Grid ColumnDefinitions="*,110,130,60,70">
+										<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+										<TextBlock Grid.Column="1" Text="{Binding Mastery}" />
+										<TextBlock Grid.Column="2" Text="{Binding Type}" TextTrimming="CharacterEllipsis" />
+										<TextBlock Grid.Column="3" Text="{Binding Cost}" />
+										<TextBlock Grid.Column="4" Text="{Binding Blocks}" />
+									</Grid>
+								</DataTemplate>
+							</ListBox.ItemTemplate>
+						</ListBox>
+					</DockPanel>
+					<StackPanel Grid.Column="2" Spacing="8">
+						<v:CardFaceView Card="{Binding Browse.Selected.Card}" Width="300" />
+						<Button Content="Open to edit" Command="{Binding OpenSelectedCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+						        ToolTip.Tip="Edit this game card; Install writes it back in place" />
+						<Button Content="New card from this one" Command="{Binding CopySelectedCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+					</StackPanel>
+				</Grid>
+			</TabItem>
+		</TabControl>
+	</DockPanel>
+</Window>

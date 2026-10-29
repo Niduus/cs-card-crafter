@@ -1,0 +1,4 @@
+[submodule "external/chaos_spells_sbox"]
+	path = external/chaos_spells_sbox
+	url = https://github.com/Niduus/chaos_spells_sbox.git
+	branch = dev
