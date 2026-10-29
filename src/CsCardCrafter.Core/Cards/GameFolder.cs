@@ -5,7 +5,7 @@ namespace CsCardCrafter.Core.Cards;
 
 /// <summary>
 /// A Chaos Spells game folder (a chaos_spells_sbox checkout): where the crafter finds the game's cards, art, card
-/// backgrounds, icons and fonts, and where "Install into game" puts new cards. Like YGO Card Crafter finding Omega.
+/// backgrounds, icons and fonts, and where "Add to game" puts new cards as official cards. Like YGO Card Crafter finding Omega.
 /// </summary>
 public sealed class GameFolder
 {

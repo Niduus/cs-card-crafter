@@ -138,7 +138,7 @@ public sealed partial class MainViewModel : ObservableObject
 			OpenFile( item.Game.Path );
 	}
 
-	/// <summary>Starts a new custom card from a game card: same everything, new name, no ID.</summary>
+	/// <summary>Starts a new card from a game card: same everything, new name, no ID.</summary>
 	[RelayCommand]
 	void CopySelected()
 	{
