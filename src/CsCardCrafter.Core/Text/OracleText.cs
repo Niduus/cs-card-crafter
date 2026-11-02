@@ -100,8 +100,10 @@ public static class OracleText
 
 	static string CrowdControl( Block block, OperationBlock op )
 	{
+		// As the cards word it: "Stun target enemy" (one round goes unsaid), "Confuse target enemy for 2 rounds".
 		var rounds = Math.Max( 1, block.Number( op, "Rounds" ) );
-		return $"{block.Value( op, "Kind" )} {Object( block.Value( op, "Who" ) )} for {rounds} {(rounds == 1 ? "round" : "rounds")}";
+		var verb = block.Value( op, "Kind" ) switch { "Marked" => "Mark", "Confusion" => "Confuse", var kind => kind };
+		return $"{verb} {Object( block.Value( op, "Who" ) )}" + (rounds == 1 ? "" : $" for {rounds} rounds");
 	}
 
 	/// <summary>Whether a grant to <paramref name="who"/> reads "X gain..." (self and all-player grants) rather than "Give ... to X".</summary>

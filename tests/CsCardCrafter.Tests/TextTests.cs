@@ -96,7 +96,8 @@ public class TextTests
 		int same = 0, total = 0;
 		static string N( string s ) => System.Text.RegularExpressions.Regex.Replace( s.ToLowerInvariant().Replace( "''", "'" ), "[^a-z0-9%]+", " " ).Trim();
 		foreach ( var c in game.LoadCards() )
-			foreach ( var e in CardScript.Read( c.Card ).Where( e => e.HasOperations ) )
+			// Only printed effects: the reader also adds an unprinted Keyword effect holding the card's keyword blocks.
+			foreach ( var e in CardScript.Read( c.Card ).Where( e => e.HasOperations && !string.IsNullOrWhiteSpace( e.Text ) ) )
 			{
 				total++;
 				if ( N( EffectWriter.Write( c.Card, e ) ) == N( e.Text ) )
