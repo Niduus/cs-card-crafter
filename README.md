@@ -12,8 +12,10 @@ effects from blocks on an event sheet, and watch the card face and its text upda
 ## Download
 
 Get `CSCardCrafter.exe` from the [Releases](../../releases) page. It is one file and needs nothing installed.
-On first run, click **Game folder…** and pick your `chaos_spells_sbox` folder: the crafter reads the cards, art and
-icons from there and installs new cards into it.
+It finds the game by itself: first from the s&box editor's own project list (`steamapps/common/sbox/config/addons.json`,
+in any Steam library), then next to the crafter, then by looking through Documents, Desktop, Downloads,
+`source/repos`, GitHub, OneDrive and the top of each drive for `chaos_spells.sbproj`. Only if none of that finds it
+does a **Choose the game folder…** button appear. **Game folder…** always lets you pick another copy.
 
 ## Building from source
 
@@ -34,17 +36,22 @@ icons from there and installs new cards into it.
 - the project's export list is checked for `cards/*` (and put back if the editor lost it);
 - with **Commit to git** ticked, the card and its art are committed in the game folder, ready to push.
 
-A card opened from the game (the card picker, or Browse, **Open to edit**) is written back where it is, keeping its ID.
+A card opened from the game (the search bar, or Browse, **Open to edit**) is written back where it is, keeping its ID.
 
 ## Editing the game's cards
 
-The card picker at the top left lists every card file in the game's `Assets/cards` folder, every collection, in the game's order. Until the crafter knows where the game is, the picker is a **Choose the game folder…** button: pick your chaos_spells_sbox folder or its Assets/cards folder. Opening any card from inside the game sets it too. Pick one (or type the first letters of its name) and it opens for editing; **Save** writes it back to its own file. If the card you're leaving has unsaved changes, the crafter asks first. Opening a card never changes it: only your edits do. Game cards keep their hand-written text, so when you change a value such as Combat, the old number in the text is changed with it where it's unmistakable ("Combat: 600", or a number that appears once); otherwise a note under the face says to change the text on the Text tab.
+The search bar at the top left searches every card file in the game's `Assets/cards` folder, every collection. Type
+part of a name ("snare") or the game's own search words (`cost:2 fire`, `mastery:ice`, `text:stun`, `keyword:sturdy`;
+hover the bar for the full list); names that start with what you typed come first. Click a card, or arrow to it and
+press Enter (Enter alone opens the best match), and it opens for editing; **Save** writes it back to its own file. If
+the card you're leaving has unsaved changes, the crafter asks first. The Browse tab lists the same cards with their
+faces. Opening a card never changes it: only your edits do. Game cards keep their hand-written text, so when you change a value such as Combat, the old number in the text is changed with it where it's unmistakable ("Combat: 600", or a number that appears once); otherwise a note under the face says to change the text on the Text tab.
 
 ## How it works
 
 | Tab | What it does |
 | --- | --- |
-| **Card** | Name, Mastery (and Duo Masteries), card type, deck, copy limit, up to 3 costs, Combat value and target, Blade / Mantle / Shield / Trap values, Lifesteal, Spirit points and uses, Anchored, keywords, series, face marks (only one, no reshuffle, fusion), artwork and credits. Picking a Mastery or type sets the background, crest and icons the game uses for it. |
+| **Card** | Name, Mastery (and Duo Masteries), card type, deck, copy limit, up to 3 costs, Combat value and target, Blade / Mantle / Shield / Trap values, Lifesteal, Spirit points and uses, Anchored, keywords (picked from a dropdown of the game's keywords, each shown as a chip with × to remove it), series, face marks (only one, no reshuffle, fusion), artwork and credits. Picking a Mastery or type sets the background, crest and icons the game uses for it. |
 | **Effects** | One row per effect: where it works (Hand, Field, Combat, Abyss, Void...), how often (once per turn, round or Conflict), and five columns, **WHEN**, **IF**, **COST**, **THEN**, **ALWAYS**. **+ Add** lists the game's own blocks for that column; fill in their blanks in place. |
 | **Text** | The printed text, one `{BEG}…{END}` paragraph per effect. With auto text on, it is written from the blocks in Chaos Spells wording (oracle.md): "Combat: 650 Storm damage to target enemy, Then you gain 2 250 damage Blades." Text you type yourself always wins. The keyword panel explains every keyword on the card. |
 | **Data** | The `.cscard` file exactly as it will be saved. |

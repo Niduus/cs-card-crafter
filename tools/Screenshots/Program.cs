@@ -24,11 +24,16 @@ void Pump()
 void Save( Window window, string name )
 {
 	Pump();
+	AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+	Pump();
 	window.CaptureRenderedFrame()?.Save( Path.Combine( output, name + ".png" ) );
 	Console.WriteLine( "saved " + name );
 }
 
 var vm = new MainViewModel();
+// The game is found on its own, off the window's thread.
+for ( var wait = 0; vm.FindingGame && wait < 400; wait++ ) { Thread.Sleep( 50 ); Pump(); }
+Console.WriteLine( $"found game: {vm.Game?.Root ?? "none"} ({vm.Status})" );
 var main = new MainWindow { DataContext = vm, Width = 1500, Height = 920 };
 main.Show();
 var tabs = main.GetVisualDescendantsOfType<TabControl>().First();
@@ -41,25 +46,64 @@ for ( var i = 0; i < names.Length; i++ )
 	Save( main, "window-" + names[i] );
 }
 
-// The card picker: choose a game card from the toolbar's list of the whole cards folder.
-var picker = main.GetVisualDescendantsOfType<ComboBox>().First( c => c.Name == "CardPicker" );
+// The search bar: type part of a name (or the game's search words), pick a card, it opens.
+var search = main.GetVisualDescendantsOfType<AutoCompleteBox>().First( c => c.Name == "CardSearchBox" );
 tabs.SelectedIndex = 0;
-picker.SelectedItem = vm.Browse.All.FirstOrDefault( i => i.Name == "Kitharas Moon" ) ?? vm.Browse.All.FirstOrDefault();
+search.MinimumPopulateDelay = TimeSpan.Zero;
+search.GetVisualDescendantsOfType<TextBox>().First().Focus();
+Pump();
+main.KeyTextInput( "kitharas" );
+for ( var wait = 0; !search.IsDropDownOpen && wait < 40; wait++ ) { Thread.Sleep( 50 ); Pump(); }
+Console.WriteLine( $"search 'kitharas': open {search.IsDropDownOpen}, {vm.Browse.Search( "kitharas" ).Count} results, first {vm.Browse.Search( "kitharas" ).FirstOrDefault()?.Name}" );
+Console.WriteLine( $"search 'cost:2 fire': {vm.Browse.Search( "cost:2 fire" ).Count} results; 'snare': {string.Join( ", ", vm.Browse.Search( "snare" ).Take( 4 ).Select( i => i.Name ) )}" );
+Save( main, "window-search" );
+// Arrow down to Kitharas Moon and press Enter, as a person would.
+var moonAt = vm.Browse.Search( "kitharas" ).FindIndex( i => i.Name == "Kitharas Moon" );
+for ( var k = 0; k <= moonAt; k++ ) { main.KeyPress( Avalonia.Input.Key.Down, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.ArrowDown, null ); Pump(); }
+main.KeyPress( Avalonia.Input.Key.Enter, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Enter, "\r" );
+Pump();
 Save( main, "window-picked" );
-Console.WriteLine( $"picker: {vm.Browse.All.Count} cards, editing {vm.Name}, picked {vm.Picked?.Name}" );
+Console.WriteLine( $"search picked: editing {vm.Name}, bar text '{search.Text}'" );
 
-// Opening a card must never change it: pick every game card in turn and compare it with its file.
+// Opening a card must never change it: open every game card in turn and compare it with its file.
 var changed = new List<string>();
 foreach ( var item in vm.Browse.All.ToList() )
 {
-	picker.SelectedItem = vm.Browse.All.First( i => i.Game.Path == item.Game.Path );
+	vm.OpenFile( item.Game.Path );
 	Pump();
 	if ( CardFile.Write( vm.Card ) != CardFile.Write( CardFile.Load( item.Game.Path ) ) || vm.Dirty )
 		changed.Add( item.Name );
 }
 Console.WriteLine( changed.Count == 0 ? "every card opens unchanged" : $"{changed.Count} cards changed on opening: {string.Join( ", ", changed.Take( 20 ) )}" );
-picker.SelectedItem = vm.Browse.All.FirstOrDefault( i => i.Name == "Kitharas Moon" );
-Save( main, "window-picked" );
+vm.OpenFile( vm.Browse.All.First( i => i.Name == "Kitharas Moon" ).Game.Path );
+
+// Enter with nothing highlighted opens the best match.
+search.GetVisualDescendantsOfType<TextBox>().First().Focus();
+main.KeyTextInput( "ash snare" );
+Pump();
+search.IsDropDownOpen = false;
+main.KeyPress( Avalonia.Input.Key.Enter, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Enter, "\r" );
+Pump();
+Console.WriteLine( $"typed 'ash snare' + Enter: editing {vm.Name}" );
+vm.OpenFile( vm.Browse.All.First( i => i.Name == "Kitharas Moon" ).Game.Path );
+
+// Keywords come from a dropdown of the game's keywords and show as chips.
+var withKeywords = vm.Browse.All.First( i => i.Card.Keywords.Count >= 2 );
+Pump();
+Console.WriteLine( $"before keywords: editing {vm.Name}, bar '{search.Text}' sel {search.SelectedItem} open {search.IsDropDownOpen}" );
+vm.OpenFile( withKeywords.Game.Path );
+Pump();
+Console.WriteLine( $"opened: editing {vm.Name}" );
+var offered = vm.KeywordsToAdd.Count();
+vm.KeywordToAdd = vm.KeywordsToAdd.First( k => k.Name == "Final Will" );
+Pump();
+Console.WriteLine( $"keywords: {MainViewModel.AllKeywords.Length} in the dropdown ({string.Join( ", ", MainViewModel.AllKeywords.Select( k => k.Name ) )}); {withKeywords.Name} had {offered} left to add, now [{string.Join( ", ", vm.Card.Keywords )}], dirty {vm.Dirty}" );
+tabs.SelectedIndex = 0;
+main.GetVisualDescendantsOfType<ScrollViewer>().First().Offset = new Avalonia.Vector( 0, 260 );
+Save( main, "window-keywords" );
+vm.RemoveKeywordCommand.Execute( vm.CardKeywordChips.First( k => k.Name == "Final Will" ) );
+Console.WriteLine( $"removed Final Will: [{string.Join( ", ", vm.Card.Keywords )}]" );
+vm.OpenFile( vm.Browse.All.First( i => i.Name == "Kitharas Moon" ).Game.Path );
 
 // Edits redraw the face straight away.
 var faceView = main.GetVisualDescendantsOfType<CardFaceView>().First();

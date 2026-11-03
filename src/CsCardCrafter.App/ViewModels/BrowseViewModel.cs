@@ -60,6 +60,27 @@ public sealed partial class BrowseViewModel : ObservableObject
 
 	partial void OnQueryChanged( string value ) => Filter();
 
+	/// <summary>
+	/// The toolbar search bar: every game card the words match (the game's own search words, so "cost:2 fire" works),
+	/// names that start with the words first, then names that hold them, then cards matched by text, type or Mastery.
+	/// </summary>
+	public List<BrowseItem> Search( string query, int max = 60 )
+	{
+		if ( string.IsNullOrWhiteSpace( query ) )
+			return new();
+		var q = query.Trim();
+		return _all
+			.Where( i => CardSearch.Matches( i.Card, q ) || i.Name.Contains( q, StringComparison.OrdinalIgnoreCase ) )
+			.Select( ( item, order ) => (item, order, rank:
+				item.Name.Equals( q, StringComparison.OrdinalIgnoreCase ) ? 0 :
+				item.Name.StartsWith( q, StringComparison.OrdinalIgnoreCase ) ? 1 :
+				item.Name.Contains( q, StringComparison.OrdinalIgnoreCase ) ? 2 : 3) )
+			.OrderBy( x => x.rank ).ThenBy( x => x.order )
+			.Take( max )
+			.Select( x => x.item )
+			.ToList();
+	}
+
 	void Filter()
 	{
 		Results.Clear();

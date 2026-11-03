@@ -9,7 +9,11 @@ namespace CsCardCrafter.App.Views;
 
 public partial class MainWindow : Window
 {
-	public MainWindow() => InitializeComponent();
+	public MainWindow()
+	{
+		InitializeComponent();
+		CardSearchBox.AddHandler( KeyDownEvent, CardSearch_PreviewKeyDown, RoutingStrategies.Tunnel );
+	}
 
 	MainViewModel Vm => (MainViewModel)DataContext!;
 
@@ -92,33 +96,78 @@ public partial class MainWindow : Window
 		flyout.ShowAt( button );
 	}
 
-	/// <summary>The card picker: opens the chosen game card, asking first when the current card has unsaved changes.</summary>
-	async void CardPicker_SelectionChanged( object sender, SelectionChangedEventArgs e )
+	/// <summary>The search bar's list: the game cards the typed words match, best names first.</summary>
+	void CardSearch_Populating( object sender, PopulatingEventArgs e )
 	{
-		if ( sender is not ComboBox picker || picker.SelectedItem is not BrowseItem item || item == Vm.Picked )
+		if ( sender is not AutoCompleteBox box )
 			return;
-		if ( Vm.Dirty )
+		e.Cancel = true;
+		box.ItemsSource = Vm.Browse.Search( e.Parameter );
+		box.PopulateComplete();
+	}
+
+	/// <summary>A card picked from the search bar's list (clicked, or highlighted and Enter) opens for editing.</summary>
+	void CardSearch_DropDownClosed( object sender, EventArgs e )
+	{
+		if ( sender is AutoCompleteBox { SelectedItem: BrowseItem item } box )
+			OpenFromSearch( box, item );
+	}
+
+	/// <summary>Enter with nothing highlighted opens the best match. Runs before the search bar's own keys.</summary>
+	void CardSearch_PreviewKeyDown( object sender, KeyEventArgs e )
+	{
+		if ( e.Key != Key.Enter || sender is not AutoCompleteBox box || box.SelectedItem is BrowseItem )
+			return;
+		if ( Vm.Browse.Search( box.Text ).FirstOrDefault() is { } best )
 		{
-			var answer = await Ask( $"{(string.IsNullOrEmpty( Vm.Name ) ? "This card" : Vm.Name)} has unsaved changes.", "Save", "Don't save", "Cancel" );
-			if ( answer == "Cancel" || answer is null )
-			{
-				picker.SelectedItem = Vm.Picked;
-				return;
-			}
-			if ( answer == "Save" )
-			{
-				if ( string.IsNullOrEmpty( Vm.FilePath ) || !Vm.Save( Vm.FilePath ) )
-				{
-					picker.SelectedItem = Vm.Picked;
-					if ( string.IsNullOrEmpty( Vm.FilePath ) )
-						Vm.Status = "This card has no file yet: use Save as… or Add to game first.";
-					return;
-				}
-				// Saving re-reads the card list, so find the chosen card again.
-				item = Vm.Browse.All.FirstOrDefault( i => i.Game.Path == item.Game.Path ) ?? item;
-			}
+			box.IsDropDownOpen = false;
+			OpenFromSearch( box, best );
 		}
-		Vm.OpenFile( item.Game.Path );
+		e.Handled = true;
+	}
+
+	bool _openingFromSearch;
+
+	/// <summary>Opens a game card from the search bar, asking first when the current card has unsaved changes.</summary>
+	async void OpenFromSearch( AutoCompleteBox box, BrowseItem item )
+	{
+		if ( _openingFromSearch )
+			return;
+		_openingFromSearch = true;
+		try
+		{
+			if ( item.Game.Path == Vm.GamePath && !Vm.Dirty )
+				return;
+			if ( Vm.Dirty )
+			{
+				var answer = await Ask( $"{(string.IsNullOrEmpty( Vm.Name ) ? "This card" : Vm.Name)} has unsaved changes.", "Save", "Don't save", "Cancel" );
+				if ( answer == "Cancel" || answer is null )
+					return;
+				if ( answer == "Save" )
+				{
+					if ( string.IsNullOrEmpty( Vm.FilePath ) || !Vm.Save( Vm.FilePath ) )
+					{
+						if ( string.IsNullOrEmpty( Vm.FilePath ) )
+							Vm.Status = "This card has no file yet: use Save as… or Add to game first.";
+						return;
+					}
+					// Saving re-reads the card list, so find the chosen card again.
+					item = Vm.Browse.All.FirstOrDefault( i => i.Game.Path == item.Game.Path ) ?? item;
+				}
+			}
+			Vm.OpenFile( item.Game.Path );
+		}
+		finally
+		{
+			// Ready for the next search; the card's name is in the title bar and on the face.
+			// (after the search bar finishes its own closing, which would put the text back).
+			Avalonia.Threading.Dispatcher.UIThread.Post( () =>
+			{
+				// Clearing the text also clears the chosen item (setting the item to null would put the typed words back).
+				box.Text = "";
+				_openingFromSearch = false;
+			} );
+		}
 	}
 
 	/// <summary>A small question box; returns the pressed button's text, or null if it was closed.</summary>

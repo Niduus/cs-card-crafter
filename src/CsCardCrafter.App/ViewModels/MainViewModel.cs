@@ -55,9 +55,60 @@ public sealed partial class MainViewModel : ObservableObject
 
 	public MainViewModel()
 	{
-		SetGame( GameFolder.At( _settings.GameFolder ) ?? GameFolder.Find() ?? GameFolder.Find( Environment.CurrentDirectory ) );
 		Load( CardParts.NewCard(), null, null, autoText: true );
+		if ( GameFolder.At( _settings.GameFolder ) is { } last )
+			SetGame( last );
+		else
+			_ = FindGameAsync();
 	}
+
+	/// <summary>True while the crafter looks for the game on its own.</summary>
+	[ObservableProperty] bool _findingGame;
+
+	/// <summary>
+	/// Finds the game without being asked: the s&amp;box editor's project list first, then near the crafter, then the
+	/// usual folders. Runs off the window's thread so the crafter opens straight away.
+	/// </summary>
+	public async Task FindGameAsync()
+	{
+		if ( FindingGame )
+			return;
+		FindingGame = true;
+		GameStatus = "Looking for the Chaos Spells game…";
+		GameFinder.Found found = null;
+		try
+		{
+			found = await Task.Run( () => GameFinder.Find() );
+		}
+		catch ( Exception )
+		{
+			// Finding is a convenience; the folder can still be chosen by hand.
+		}
+		Avalonia.Threading.Dispatcher.UIThread.Post( () => FoundGame( found ) );
+	}
+
+	void FoundGame( GameFinder.Found found )
+	{
+		FindingGame = false;
+		if ( found is null )
+		{
+			SetGame( null );
+			Status = "Couldn't find the Chaos Spells game on this PC. Use \"Choose the game folder…\" to point at your chaos_spells_sbox folder.";
+			return;
+		}
+		SetGame( found.Game );
+		Status = found.From switch
+		{
+			GameFinder.Source.SboxEditor => $"Found the game from the s&box editor's projects: {found.Game.Root}",
+			GameFinder.Source.NearCrafter => $"Found the game next to the crafter: {found.Game.Root}",
+			_ => $"Found the game: {found.Game.Root}",
+		};
+	}
+
+	partial void OnFindingGameChanged( bool value ) => OnPropertyChanged( nameof( ShowChooseGame ) );
+
+	/// <summary>The "Choose the game folder…" button, shown only when the game wasn't found.</summary>
+	public bool ShowChooseGame => Game is null && !FindingGame;
 
 	public string Title => $"CS Card Crafter - {(string.IsNullOrEmpty( Card?.Name ) ? "Untitled" : Card.Name)}{(Dirty ? " *" : "")}";
 
@@ -68,7 +119,8 @@ public sealed partial class MainViewModel : ObservableObject
 		Game = game;
 		Images.Game = game;
 		OnPropertyChanged( nameof( HasGame ) );
-		GameStatus = game is null ? "Chaos Spells game folder not found. Choose it to see art and cards." : $"Game: {game.Root}";
+		OnPropertyChanged( nameof( ShowChooseGame ) );
+		GameStatus = game is null ? "Chaos Spells game folder not found. Choose it to see art and cards." : $"Game: {Path.GetFileName( game.Root.TrimEnd( Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar ) )}";
 		if ( game is not null )
 		{
 			_settings.GameFolder = game.Root;
@@ -113,6 +165,8 @@ public sealed partial class MainViewModel : ObservableObject
 		_loading = false;
 		foreach ( var name in CardFields )
 			OnPropertyChanged( name );
+		OnPropertyChanged( nameof( CardKeywordChips ) );
+		OnPropertyChanged( nameof( KeywordsToAdd ) );
 		Renumber();
 		CardChanged();
 		Dirty = false;
@@ -478,6 +532,57 @@ public sealed partial class MainViewModel : ObservableObject
 	public bool PermanentAnchored { get => Card?.PermanentAnchored ?? false; set => Set( PermanentAnchored, value, v => Card.PermanentAnchored = v ); }
 	public int AnchoredRounds { get => Card?.AnchoredRounds ?? 0; set => SetValue( AnchoredRounds, value, v => Card.AnchoredRounds = v ); }
 	public string Keywords { get => string.Join( ", ", Card?.Keywords ?? new() ); set => Set( Keywords, value ?? "", v => Card.Keywords = SplitList( v ) ); }
+
+	/// <summary>
+	/// Every keyword a card can carry, from the game's own glossary (Code/Cards/CardKeywords.cs), A to Z. Seat statuses
+	/// (Crowd Control: Stun, Silence...) and healing terms are effects, not card keywords, so they aren't offered.
+	/// </summary>
+	public static KeywordOption[] AllKeywords { get; } = CardKeywords.Glossary
+		.Where( k => !k.Value.Contains( "Mend protects from Crowd Control", StringComparison.Ordinal )
+			&& k.Key is not ("Crowd Control" or "Healing" or "Overhealing" or "Detonate") )
+		.Select( k => new KeywordOption( k.Key, k.Value ) )
+		.OrderBy( k => k.Name, StringComparer.OrdinalIgnoreCase )
+		.ToArray();
+
+	/// <summary>The card's keywords as chips, each with its meaning and an × to take it off.</summary>
+	public IEnumerable<KeywordOption> CardKeywordChips =>
+		(Card?.Keywords ?? new()).Select( k => CardKeywords.Name( k ) is { } name ? new KeywordOption( name, CardKeywords.Glossary[name], k ) : new KeywordOption( k, "Not a keyword the game knows.", k ) ).ToList();
+
+	/// <summary>The keyword dropdown: the keywords the card doesn't have yet.</summary>
+	public IEnumerable<KeywordOption> KeywordsToAdd =>
+		AllKeywords.Where( o => !(Card?.Keywords ?? new()).Any( k => CardKeywords.Name( k ) == o.Name ) ).ToList();
+
+	/// <summary>Picking a keyword in the dropdown adds it (saved as the game's id, e.g. "FinalWill"), then the dropdown resets.</summary>
+	public KeywordOption KeywordToAdd
+	{
+		get => null;
+		set
+		{
+			if ( value is null || Card is null || Card.Keywords.Any( k => CardKeywords.Name( k ) == value.Name ) )
+				return;
+			Card.Keywords.Add( value.Id );
+			KeywordsEdited();
+		}
+	}
+
+	[RelayCommand]
+	void RemoveKeyword( KeywordOption keyword )
+	{
+		if ( keyword is null || Card is null || !Card.Keywords.Remove( keyword.Id ) )
+			return;
+		KeywordsEdited();
+	}
+
+	void KeywordsEdited()
+	{
+		if ( !AutoText )
+			TextNote = "The card's text is written by hand, so its keyword line didn't change: edit it on the Text tab, or tick \"Write the card text from the effects\".";
+		OnPropertyChanged( nameof( Keywords ) );
+		OnPropertyChanged( nameof( CardKeywordChips ) );
+		OnPropertyChanged( nameof( KeywordsToAdd ) );
+		OnPropertyChanged( nameof( KeywordToAdd ) );
+		CardChanged();
+	}
 	public string Series { get => string.Join( ", ", Card?.Series ?? new() ); set => Set( Series, value ?? "", v => Card.Series = SplitList( v ) ); }
 	public bool OnlyOne { get => !string.IsNullOrEmpty( Card?.OnlyIcon ); set => Set( OnlyOne, value, v => Card.OnlyIcon = v ? CardParts.OnlyOneIcon : "" ); }
 	public bool NoReshuffle { get => !string.IsNullOrEmpty( Card?.ReshuffleIcon ); set => Set( NoReshuffle, value, v => Card.ReshuffleIcon = v ? CardParts.NoReshuffleIcon : "" ); }
@@ -504,3 +609,12 @@ public sealed partial class MainViewModel : ObservableObject
 }
 
 public sealed record KeywordInfo( string Name, string Meaning );
+
+/// <summary>A keyword in the dropdown or on the card: its printed name, what it means, and the id the card file stores.</summary>
+public sealed record KeywordOption( string Name, string Meaning, string Id = null )
+{
+	/// <summary>Stored as the game's existing cards store keywords: no spaces or dashes ("FinalWill", "AntiHeal").</summary>
+	public string Id { get; init; } = Id ?? Name.Replace( " ", "" ).Replace( "-", "" );
+
+	public override string ToString() => Name;
+}
