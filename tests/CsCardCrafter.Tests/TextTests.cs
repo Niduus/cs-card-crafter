@@ -134,3 +134,46 @@ public class InnateConditionTests
 		Assert.StartsWith( "{BEG}Activate only if your mastery is Life.{END}{BEG}You draw 1.{END}", CardWriter.Description( card, keepTyped: false ) );
 	}
 }
+
+/// <summary>Every keyword goes in the card text's keyword line (Justin, 2026-11-03).</summary>
+public class KeywordLineTests
+{
+	static CardDefinition Card( string description, params string[] keywords ) =>
+		new() { Name = "Test", Mastery = "Ice", Description = description, Keywords = keywords.ToList() };
+
+	[Fact]
+	public void AddsToTheExistingLineKeepingTheRest()
+	{
+		var text = "{BEG}Anchored, Exclusive: Ice, Sturdy 1 Usage.{END}\n{BEG}Combat: 100 Ice damage to target enemy.{END}";
+		var card = Card( text, "Anchored", "MasteryCast", "Sturdy", "FinalWill" );
+		Assert.Equal( "{BEG}Anchored, Exclusive: Ice, Sturdy 1 Usage, Final Will.{END}\n{BEG}Combat: 100 Ice damage to target enemy.{END}", KeywordLine.Ensure( card, text ) );
+		Assert.Equal( text, KeywordLine.Ensure( Card( text, "Anchored", "MasteryCast", "Sturdy" ), text ) );
+	}
+
+	[Fact]
+	public void StartsALineWhenThereIsNone()
+	{
+		var text = "{BEG}Combat: 100 Ice damage to target enemy.{END}\n{BEG}You draw 1.{END}";
+		Assert.Equal( "{BEG}Final Will, Sturdy 1 Usage.{END}\n" + text, KeywordLine.Ensure( Card( text, "FinalWill", "Sturdy" ), text ) );
+		Assert.Equal( "{BEG}Exclusive: Ice.{END}", KeywordLine.Ensure( Card( "", "MasteryCast" ), "" ) );
+		var innate = "{BEG}Activate only if your mastery is Life.{END}{BEG}You draw 1.{END}";
+		Assert.Equal( "{BEG}Activate only if your mastery is Life.{END}{BEG}Regenerate.{END}{BEG}You draw 1.{END}", KeywordLine.Ensure( Card( innate, "Regenerate" ), innate ) );
+	}
+
+	[Fact]
+	public void RemovesFromTheLineAndDropsAnEmptyLine()
+	{
+		var text = "{BEG}Agnostic: Light, Anchored, Final Will, Rooted 1 Usage.{END}\n{BEG}You draw 1.{END}";
+		Assert.Equal( "{BEG}Agnostic: Light, Anchored, Rooted 1 Usage.{END}\n{BEG}You draw 1.{END}", KeywordLine.Remove( text, "FinalWill" ) );
+		Assert.Equal( "{BEG}You draw 1.{END}", KeywordLine.Remove( "{BEG}Final Will.{END}\n{BEG}You draw 1.{END}", "Final Will" ) );
+		var list = "{BEG}Exclusive: Fire, Ice, Sturdy 1 Usage.{END}";
+		Assert.Equal( "{BEG}Sturdy 1 Usage.{END}", KeywordLine.Remove( list, "Exclusive" ) );
+	}
+
+	[Fact]
+	public void AutoTextPrintsEveryKeyword()
+	{
+		var card = Card( "", "FinalWill" );
+		Assert.Contains( "{BEG}Final Will.{END}", CardWriter.Description( card ) );
+	}
+}

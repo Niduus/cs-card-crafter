@@ -21,21 +21,43 @@ public static class GameFinder
 
 	public sealed record Found( GameFolder Game, Source From );
 
+	/// <summary>What the last <see cref="Find"/> looked at, line by line, for when the game isn't found.</summary>
+	public static List<string> Report { get; private set; } = new();
+
 	/// <summary>Every way to find the game, in order; the first hit wins. <paramref name="saved"/> is the folder used last time.</summary>
 	public static Found Find( string saved = null, IEnumerable<string> starts = null, IEnumerable<(string Folder, int Depth)> searchRoots = null, IEnumerable<string> steamRoots = null, TimeSpan? budget = null )
 	{
-		if ( GameFolder.At( saved ) is { } last )
-			return new Found( last, Source.Saved );
+		var report = new List<string>();
+		Report = report;
+		if ( !string.IsNullOrWhiteSpace( saved ) )
+		{
+			report.Add( $"Last used folder: {saved}" );
+			if ( GameFolder.At( saved ) is { } last )
+				return new Found( last, Source.Saved );
+			report.Add( "  not a Chaos Spells project any more" );
+		}
 
-		foreach ( var project in SboxProjects( steamRoots ?? SteamRoots() ) )
+		var steam = (steamRoots ?? SteamRoots()).ToList();
+		report.Add( steam.Count == 0 ? "Steam: not found" : "Steam libraries: " + string.Join( "; ", steam ) );
+		var lists = SboxProjectLists( steam ).ToList();
+		report.Add( lists.Count == 0 ? "s&box project list (sbox/config/addons.json): not found" : "s&box project lists: " + string.Join( "; ", lists ) );
+		foreach ( var project in SboxProjects( steam ) )
+		{
 			if ( GameFolder.At( project ) is { } game )
 				return new Found( game, Source.SboxEditor );
+			report.Add( $"  s&box project {project}: no Assets/cards with .cscard files" );
+		}
 
 		foreach ( var start in starts ?? new[] { AppContext.BaseDirectory, Environment.CurrentDirectory } )
+		{
+			report.Add( $"Next to the crafter: {start}" );
 			if ( GameFolder.Find( start ) is { } near )
 				return new Found( near, Source.NearCrafter );
+		}
 
-		var hit = Search( searchRoots ?? SearchRoots(), budget ?? TimeSpan.FromSeconds( 8 ) );
+		var roots = (searchRoots ?? SearchRoots()).ToList();
+		report.Add( "Searched: " + string.Join( "; ", roots.Where( r => Directory.Exists( r.Folder ) ).Select( r => $"{r.Folder} ({r.Depth} deep)" ) ) );
+		var hit = Search( roots, budget ?? TimeSpan.FromSeconds( 10 ) );
 		return hit is null ? null : new Found( hit, Source.Search );
 	}
 
@@ -53,6 +75,28 @@ public static class GameFinder
 				roots.Add( p );
 		}
 
+		// Where Steam says it is installed (Windows keeps it in the registry).
+		if ( OperatingSystem.IsWindows() )
+		{
+			foreach ( var (hive, key, value) in new[]
+			{
+				(Microsoft.Win32.Registry.CurrentUser, @"Software\Valve\Steam", "SteamPath"),
+				(Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+				(Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\Valve\Steam", "InstallPath"),
+			} )
+			{
+				try
+				{
+					using var k = hive.OpenSubKey( key );
+					if ( k?.GetValue( value ) is string path )
+						Add( path.Replace( '/', '\\' ) );
+				}
+				catch ( Exception )
+				{
+					// No access: the other places still count.
+				}
+			}
+		}
 		Add( Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ProgramFilesX86 ), "Steam" ) );
 		Add( Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ProgramFiles ), "Steam" ) );
 		Add( Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.UserProfile ), ".steam", "steam" ) );
@@ -95,18 +139,37 @@ public static class GameFinder
 	/// Project folders the s&amp;box editor knows, newest first: steamapps/common/sbox/config/addons.json lists each
 	/// project's .sbproj ("ConfigFilePath") with when it was last opened.
 	/// </summary>
-	public static IEnumerable<string> SboxProjects( IEnumerable<string> steamRoots )
+	public static IEnumerable<string> SboxProjects( IEnumerable<string> steamRoots ) =>
+		SboxProjectLists( steamRoots ).SelectMany( ReadProjectList )
+			.OrderByDescending( p => p.Opened ).Select( p => p.Folder ).Distinct( StringComparer.OrdinalIgnoreCase ).ToList();
+
+	/// <summary>
+	/// Every s&amp;box project list (config/addons.json) in the Steam libraries: steamapps/common/sbox, or any other
+	/// game folder there that has one (a renamed or test-branch install).
+	/// </summary>
+	public static IEnumerable<string> SboxProjectLists( IEnumerable<string> steamRoots )
 	{
-		var projects = new List<(string Folder, DateTimeOffset Opened)>();
+		var seen = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 		foreach ( var root in steamRoots )
 		{
-			foreach ( var install in new[] { Path.Combine( root, "steamapps", "common", "sbox" ), root } )
+			var installs = new List<string> { root };
+			var common = Path.Combine( root, "steamapps", "common" );
+			try
+			{
+				if ( Directory.Exists( common ) )
+					installs.AddRange( Directory.EnumerateDirectories( common ) );
+			}
+			catch ( Exception )
+			{
+				installs.Add( Path.Combine( common, "sbox" ) );
+			}
+			foreach ( var install in installs )
 			{
 				var list = Path.Combine( install, "config", "addons.json" );
-				projects.AddRange( ReadProjectList( list ) );
+				if ( File.Exists( list ) && seen.Add( list ) )
+					yield return list;
 			}
 		}
-		return projects.OrderByDescending( p => p.Opened ).Select( p => p.Folder ).Distinct( StringComparer.OrdinalIgnoreCase );
 	}
 
 	/// <summary>One s&amp;box addons.json: the folder of each listed project file, with when it was last opened.</summary>
@@ -169,7 +232,7 @@ public static class GameFinder
 		yield return (Path.Combine( home, "GitHub" ), 3);
 		yield return (Path.Combine( home, "OneDrive" ), 4);
 		yield return (Path.Combine( documents, "s&box projects" ), 2);
-		yield return (home, 3);
+		yield return (home, 4);
 		foreach ( var drive in Drives() )
 			yield return (drive, 3);
 	}

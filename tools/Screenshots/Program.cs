@@ -65,6 +65,12 @@ Pump();
 Save( main, "window-picked" );
 Console.WriteLine( $"search picked: editing {vm.Name}, bar text '{search.Text}'" );
 
+// The dropdown next to it lists every card too.
+var picker = main.GetVisualDescendantsOfType<ComboBox>().First( c => c.Name == "CardPicker" );
+picker.SelectedItem = vm.Browse.All.FirstOrDefault( i => i.Name == "Glacier Heart" );
+Pump();
+Console.WriteLine( $"dropdown: {vm.Browse.All.Count} cards, picked Glacier Heart, editing {vm.Name}" );
+
 // Opening a card must never change it: open every game card in turn and compare it with its file.
 var changed = new List<string>();
 foreach ( var item in vm.Browse.All.ToList() )
@@ -97,12 +103,13 @@ Console.WriteLine( $"opened: editing {vm.Name}" );
 var offered = vm.KeywordsToAdd.Count();
 vm.KeywordToAdd = vm.KeywordsToAdd.First( k => k.Name == "Final Will" );
 Pump();
+Console.WriteLine( "keyword line now: " + vm.Description.Split( "{END}" )[0] );
 Console.WriteLine( $"keywords: {MainViewModel.AllKeywords.Length} in the dropdown ({string.Join( ", ", MainViewModel.AllKeywords.Select( k => k.Name ) )}); {withKeywords.Name} had {offered} left to add, now [{string.Join( ", ", vm.Card.Keywords )}], dirty {vm.Dirty}" );
 tabs.SelectedIndex = 0;
 main.GetVisualDescendantsOfType<ScrollViewer>().First().Offset = new Avalonia.Vector( 0, 260 );
 Save( main, "window-keywords" );
 vm.RemoveKeywordCommand.Execute( vm.CardKeywordChips.First( k => k.Name == "Final Will" ) );
-Console.WriteLine( $"removed Final Will: [{string.Join( ", ", vm.Card.Keywords )}]" );
+Console.WriteLine( $"removed Final Will: [{string.Join( ", ", vm.Card.Keywords )}], line: {vm.Description.Split( "{END}" )[0]}" );
 vm.OpenFile( vm.Browse.All.First( i => i.Name == "Kitharas Moon" ).Game.Path );
 
 // Edits redraw the face straight away.

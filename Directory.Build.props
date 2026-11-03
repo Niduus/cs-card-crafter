@@ -2,7 +2,7 @@
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
 		<LangVersion>latest</LangVersion>
-		<Version>0.1.4</Version>
+		<Version>0.1.5</Version>
 		<Authors>Niduus</Authors>
 		<!-- The game repo, a git submodule. Its engine-free code (cards, rules, board) is compiled into the core. -->
 		<GameRoot>$(MSBuildThisFileDirectory)external/chaos_spells_sbox/</GameRoot>

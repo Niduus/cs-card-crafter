@@ -87,13 +87,25 @@ public sealed partial class MainViewModel : ObservableObject
 		Avalonia.Threading.Dispatcher.UIThread.Post( () => FoundGame( found ) );
 	}
 
+	/// <summary>Where the crafter writes what it looked at while finding the game.</summary>
+	public static string FindReportFile => Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData ), "CSCardCrafter", "find-game.txt" );
+
 	void FoundGame( GameFinder.Found found )
 	{
 		FindingGame = false;
+		try
+		{
+			Directory.CreateDirectory( Path.GetDirectoryName( FindReportFile )! );
+			File.WriteAllLines( FindReportFile, GameFinder.Report.Append( found is null ? "Result: not found" : $"Result: {found.Game.Root} ({found.From})" ) );
+		}
+		catch ( Exception )
+		{
+			// The report is only for troubleshooting.
+		}
 		if ( found is null )
 		{
 			SetGame( null );
-			Status = "Couldn't find the Chaos Spells game on this PC. Use \"Choose the game folder…\" to point at your chaos_spells_sbox folder.";
+			Status = $"Couldn't find the Chaos Spells game on this PC. Use \"Choose the game folder…\". (What was checked: {FindReportFile})";
 			return;
 		}
 		SetGame( found.Game );
@@ -129,6 +141,44 @@ public sealed partial class MainViewModel : ObservableObject
 		Browse.Load( game );
 		SyncPicked();
 		Revision++;
+		WatchCards( game );
+	}
+
+	FileSystemWatcher _watcher;
+	System.Threading.Timer _reload;
+
+	/// <summary>
+	/// Keeps the card list in step with the game folder: a card added, renamed or removed there (by s&amp;box, git or
+	/// another crafter) shows in the search and dropdown straight away.
+	/// </summary>
+	void WatchCards( GameFolder game )
+	{
+		_watcher?.Dispose();
+		_watcher = null;
+		if ( game is null || !Directory.Exists( game.CardsFolder ) )
+			return;
+		try
+		{
+			_watcher = new FileSystemWatcher( game.CardsFolder, "*" + CardFile.Extension ) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+			FileSystemEventHandler changed = ( _, _ ) => _reload?.Change( 600, System.Threading.Timeout.Infinite );
+			_reload?.Dispose();
+			_reload = new System.Threading.Timer( _ => Avalonia.Threading.Dispatcher.UIThread.Post( () =>
+			{
+				if ( Game != game )
+					return;
+				Browse.Load( game );
+				SyncPicked();
+			} ) );
+			_watcher.Created += changed;
+			_watcher.Deleted += changed;
+			_watcher.Changed += changed;
+			_watcher.Renamed += ( _, _ ) => _reload?.Change( 600, System.Threading.Timeout.Infinite );
+			_watcher.EnableRaisingEvents = true;
+		}
+		catch ( Exception )
+		{
+			// Watching is a convenience; reopening the crafter re-reads the cards.
+		}
 	}
 
 	public bool HasGame => Game is not null;
@@ -561,6 +611,9 @@ public sealed partial class MainViewModel : ObservableObject
 			if ( value is null || Card is null || Card.Keywords.Any( k => CardKeywords.Name( k ) == value.Name ) )
 				return;
 			Card.Keywords.Add( value.Id );
+			// The keyword goes in the card text's keyword line too, written by hand or not.
+			if ( !AutoText )
+				Card.Description = KeywordLine.Ensure( Card, Card.Description );
 			KeywordsEdited();
 		}
 	}
@@ -570,13 +623,14 @@ public sealed partial class MainViewModel : ObservableObject
 	{
 		if ( keyword is null || Card is null || !Card.Keywords.Remove( keyword.Id ) )
 			return;
+		if ( !AutoText )
+			Card.Description = KeywordLine.Remove( Card.Description, keyword.Name );
 		KeywordsEdited();
 	}
 
 	void KeywordsEdited()
 	{
-		if ( !AutoText )
-			TextNote = "The card's text is written by hand, so its keyword line didn't change: edit it on the Text tab, or tick \"Write the card text from the effects\".";
+		OnPropertyChanged( nameof( Description ) );
 		OnPropertyChanged( nameof( Keywords ) );
 		OnPropertyChanged( nameof( CardKeywordChips ) );
 		OnPropertyChanged( nameof( KeywordsToAdd ) );

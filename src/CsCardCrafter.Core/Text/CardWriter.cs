@@ -41,7 +41,8 @@ public static class CardWriter
 		}
 		if ( EffectWriter.UsageLine( card ) is { Length: > 0 } usage )
 			lines.Add( usage );
-		return string.Concat( lines.Select( l => "{BEG}" + l + "{END}" ) );
+		// Every keyword the card has goes in its keyword line (Justin, 2026-11-03).
+		return KeywordLine.Ensure( card, string.Concat( lines.Select( l => "{BEG}" + l + "{END}" ) ) );
 	}
 
 	/// <summary>Writes every effect's suggested text into the effect and the card's description.</summary>

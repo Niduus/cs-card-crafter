@@ -26,7 +26,15 @@ public sealed class GameFolder
 		try
 		{
 			var full = Path.GetFullPath( path );
-			return File.Exists( Path.Combine( full, ProjectFile ) ) ? new GameFolder( full ) : null;
+			if ( File.Exists( full ) && full.EndsWith( ".sbproj", StringComparison.OrdinalIgnoreCase ) )
+				full = Path.GetDirectoryName( full );
+			if ( File.Exists( Path.Combine( full, ProjectFile ) ) )
+				return new GameFolder( full );
+			// A copy whose project file has another name still counts when it holds Chaos Spells cards.
+			var cards = Path.Combine( full, "Assets", "cards" );
+			return Directory.Exists( cards ) && Directory.EnumerateFiles( full, "*.sbproj" ).Any()
+				&& Directory.EnumerateFiles( cards, "*" + CardFile.Extension, SearchOption.AllDirectories ).Any()
+				? new GameFolder( full ) : null;
 		}
 		catch ( Exception )
 		{
