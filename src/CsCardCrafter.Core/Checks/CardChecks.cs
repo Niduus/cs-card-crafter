@@ -71,6 +71,10 @@ public static class CardChecks
 		foreach ( var option in card.Effects.Where( e => e.Section == EffectSection.Option && !branches.Contains( (e.Text ?? "").Trim() ) ) )
 			Warn( $"The Option effect \"{option.Text}\" isn't an option of any Choose one or Coin Flip on the card (its text must match the option exactly)." );
 
+		// Justin 2026-11-03: a card only says when once per turn, round or Conflict applies, never that it doesn't.
+		if ( System.Text.RegularExpressions.Regex.IsMatch( (card.Description ?? "") + " " + string.Join( " ", card.Effects.Select( e => e.Text ) ),
+			@"\((not|no) (once|1|one) per (turn|round|conflict)\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase ) )
+			Warn( "Leave out \"(Not once per turn)\": cards only say when once per turn, round or Conflict applies." );
 		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && e.If.Count > 0 && !CsCardCrafter.Core.Text.EffectWriter.IsInnate( e ) ) )
 			Warn( "An innate condition holds IF blocks only; move its other blocks to an effect of their own." );
 		if ( card.Keywords.Any( k => CardKeywords.Name( k ) is null ) )

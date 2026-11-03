@@ -1,3 +1,4 @@
+using System;
 using ChaosSpells.Cards;
 using ChaosSpells.Rules;
 using CsCardCrafter.Core.Text;
@@ -86,6 +87,19 @@ public class TextTests
 		card.Effects.Add( new CardEffect { Section = EffectSection.Field, Usage = EffectUsage.OncePerTurn } );
 		card.Effects.Add( new CardEffect { Section = EffectSection.Abyss, Usage = EffectUsage.OncePerConflict } );
 		Assert.Equal( "You can only activate this card's Field effect once per turn and its Abyss effect once per Conflict.", EffectWriter.UsageLine( card ) );
+	}
+
+	/// <summary>Justin 2026-11-03: nothing is written when no once-per limit applies, and "(Not once per turn)" is flagged.</summary>
+	[Fact]
+	public void NoNotOncePerTurn()
+	{
+		var card = Card();
+		card.Effects.Add( new CardEffect { Section = EffectSection.Field, Usage = EffectUsage.None, Text = "Draw 1 card." } );
+		Assert.Equal( "", EffectWriter.UsageLine( card ) );
+		Assert.DoesNotContain( "once per", CardWriter.Description( card, keepTyped: false ), StringComparison.OrdinalIgnoreCase );
+		Assert.DoesNotContain( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "Not once per" ) );
+		card.Effects[0].Text = "Draw 1 card. (Not once per turn)";
+		Assert.Contains( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "Not once per" ) );
 	}
 
 	/// <summary>Of the game's effects that already run on blocks, most read back word for word; the rest are older wording.</summary>
