@@ -212,6 +212,8 @@
 						<Button Classes="small" Content="Keyword" Command="{Binding AddEffectCommand}" CommandParameter="Keyword" />
 						<Button Classes="small" Content="Innate condition" Command="{Binding AddEffectCommand}" CommandParameter="Innate"
 						        ToolTip.Tip="&quot;Activate only if ...&quot;: put IF blocks in it; when they don't hold, the card can't be activated" />
+						<Button Classes="small" Content="Option" Command="{Binding AddEffectCommand}" CommandParameter="Option"
+						        ToolTip.Tip="One branch of a &quot;Choose one&quot; or a Coin Flip: write its text exactly as the choice prints the option, and give it the blocks that branch does" />
 						<Button Classes="small" Content="Other" Command="{Binding AddEffectCommand}" CommandParameter="Flavor" />
 					</StackPanel>
 					<ScrollViewer>

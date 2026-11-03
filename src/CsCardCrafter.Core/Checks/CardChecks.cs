@@ -63,6 +63,14 @@ public static class CardChecks
 				Warn( $"Effect {i + 1} ({effect.Section}) has text but no blocks, so it won't do anything in a duel yet." );
 		}
 
+		// A "Choose one" option or Coin Flip branch runs the Option effect printed the same way.
+		var branches = card.Effects.SelectMany( e => e.Then ).Where( op => op.Op is "OP_Choice" or "OP_CallCoinFlip" )
+			.SelectMany( op => op.Params.Values ).Where( t => !string.IsNullOrWhiteSpace( t ) ).Select( t => t.Trim() ).ToList();
+		foreach ( var branch in branches.Where( t => !card.Effects.Any( e => e.Section == EffectSection.Option && (e.Text ?? "").Trim() == t ) ) )
+			Problem( $"The option \"{branch}\" has no Option effect with that text, so picking it does nothing. Add an Option effect and give it the blocks." );
+		foreach ( var option in card.Effects.Where( e => e.Section == EffectSection.Option && !branches.Contains( (e.Text ?? "").Trim() ) ) )
+			Warn( $"The Option effect \"{option.Text}\" isn't an option of any Choose one or Coin Flip on the card (its text must match the option exactly)." );
+
 		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && e.If.Count > 0 && !CsCardCrafter.Core.Text.EffectWriter.IsInnate( e ) ) )
 			Warn( "An innate condition holds IF blocks only; move its other blocks to an effect of their own." );
 		if ( card.Keywords.Any( k => CardKeywords.Name( k ) is null ) )

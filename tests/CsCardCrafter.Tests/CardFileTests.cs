@@ -33,6 +33,33 @@ public class CardFileTests
 		Assert.True( changed.Count == 0, "Changed on save: " + string.Join( ", ", changed.Take( 10 ) ) );
 	}
 
+	/// <summary>
+	/// Every playable game card is built the way the crafter builds cards: blocks the game knows in its slots, and an
+	/// Option effect for each "Choose one" option, so opening any of them in the crafter shows how it works.
+	/// </summary>
+	[Fact]
+	public void GameCardsAreBuiltFromBlocks()
+	{
+		var playable = Game.LoadCards().Select( c => c.Card ).Where( c => c.IsPlayable && !c.IsToken ).ToList();
+		var unbuilt = playable.Where( c => !c.Effects.Any( e => e.HasOperations ) && c.Effects.Any( e => e.Section is not (EffectSection.Combat or EffectSection.Flavor) ) ).Select( c => c.Name ).ToList();
+		Assert.True( unbuilt.Count == 0, "No blocks: " + string.Join( ", ", unbuilt ) );
+		var problems = playable.SelectMany( c => CardChecks.Run( c ).Where( r => r.Level == CheckLevel.Problem && (r.Message.Contains( "no block" ) || r.Message.Contains( "Option effect" )) ).Select( r => $"{c.Name}: {r.Message}" ) ).ToList();
+		Assert.True( problems.Count == 0, string.Join( "; ", problems.Take( 10 ) ) );
+	}
+
+	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>
+	[Fact]
+	public void OptionsAndSharedTextPrintOnce()
+	{
+		var cards = Game.LoadCards().Select( c => c.Card ).ToList();
+		var headstart = cards.First( c => c.Name == "Headstart" );
+		var text = CsCardCrafter.Core.Text.CardWriter.Description( headstart );
+		Assert.Equal( 1, System.Text.RegularExpressions.Regex.Matches( text, "Draw one card" ).Count );
+		var paired = cards.First( c => c.Effects.GroupBy( e => e.Text ).Any( g => g.Count() == 2 && g.Key.Length > 0 ) );
+		var shared = paired.Effects.GroupBy( e => e.Text ).First( g => g.Count() == 2 && g.Key.Length > 0 ).Key.Trim();
+		Assert.Equal( 1, System.Text.RegularExpressions.Regex.Matches( CsCardCrafter.Core.Text.CardWriter.Description( paired ), System.Text.RegularExpressions.Regex.Escape( shared ) ).Count );
+	}
+
 	[Fact]
 	public void FileNamesFollowTheGame()
 	{

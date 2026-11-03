@@ -51,10 +51,10 @@ public sealed partial class BrowseViewModel : ObservableObject
 		Filter();
 	}
 
-	/// <summary>How much of the card already runs on blocks in the game: "3/3", or "-" for a card with no effects.</summary>
+	/// <summary>How much of the card runs on blocks in the game (as its file holds them): "3/3", or "-" for a card with no effects.</summary>
 	static string Coverage( CardDefinition card )
 	{
-		var effects = ChaosSpells.Rules.CardScript.Read( card ).Where( e => e.Section is not (EffectSection.Flavor or EffectSection.ImportantTag or EffectSection.Considered) ).ToList();
+		var effects = ChaosSpells.Rules.EffectEngine.Of( card ).Where( e => e.Section is not (EffectSection.Flavor or EffectSection.ImportantTag or EffectSection.Considered) ).ToList();
 		return effects.Count == 0 ? "-" : $"{effects.Count( e => e.HasOperations )}/{effects.Count}";
 	}
 
