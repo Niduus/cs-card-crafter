@@ -17,7 +17,23 @@ public sealed partial class ParamViewModel : ObservableObject
 	public BlockParam Param { get; }
 	public string Label => Param.Label;
 	public IReadOnlyList<string> Choices { get; }
-	public bool HasChoices => Choices.Count > 0;
+	public bool HasChoices => Choices.Count > 0 && !IsFlag;
+
+	/// <summary>An on/off option ("Non-Fusion only"): a tick box, never a list of "true" and "false".</summary>
+	public bool IsFlag => Choices.Count == 2 && Choices.Contains( "true" ) && Choices.Contains( "false" );
+
+	/// <summary>Neither a list nor a tick box: typed.</summary>
+	public bool IsTyped => Choices.Count == 0;
+
+	public bool On
+	{
+		get => Value == "true";
+		set
+		{
+			Value = value ? "true" : "false";
+			OnPropertyChanged();
+		}
+	}
 
 	public ParamViewModel( OperationBlock op, BlockParam param, Action changed )
 	{

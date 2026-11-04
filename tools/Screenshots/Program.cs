@@ -147,6 +147,14 @@ var fresh = new Window { Content = new CardFaceView { Card = CardParts.NewCard()
 fresh.Show();
 Save( fresh, "face-new-card" );
 
+// On/off options are tick boxes and never print "true"/"false" (Combat per card, Non-Fusion only).
+var perCard = vm.Browse.All.First( i => i.Card.Effects.Any( e => e.Always.Any( o => o.Op == "OP_CombatPerCount" ) ) && i.Name.Contains( "Kitharas" ) );
+vm.OpenFile( perCard.Game.Path );
+main.Width = 1500;
+tabs.SelectedIndex = 1;
+Save( main, "window-effects-flags" );
+Console.WriteLine( $"flags: {perCard.Name}: {CsCardCrafter.Core.Text.CardWriter.Description( vm.Card, keepTyped: false ).Contains( "false" )}" );
+
 // Every image the game's cards use loads.
 var failed = new List<string>();
 var checkedImages = 0;
