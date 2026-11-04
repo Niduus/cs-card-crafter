@@ -147,6 +147,18 @@ var fresh = new Window { Content = new CardFaceView { Card = CardParts.NewCard()
 fresh.Show();
 Save( fresh, "face-new-card" );
 
+// Every image the game's cards use loads.
+var failed = new List<string>();
+var checkedImages = 0;
+foreach ( var g in vm.Game.LoadCards() )
+	foreach ( var asset in new[] { g.Card.Artwork, g.Card.Background, g.Card.ClassIcon, g.Card.TypeIcon, g.Card.DeckIcon, g.Card.OnlyIcon, g.Card.ReshuffleIcon, g.Card.FusionIcon }.Concat( g.Card.Costs.Select( c => c.Icon ) ) )
+	{
+		if ( string.IsNullOrWhiteSpace( asset ) ) continue;
+		checkedImages++;
+		if ( CsCardCrafter.App.Services.Images.Get( asset ) is null ) failed.Add( asset );
+	}
+Console.WriteLine( $"images: {checkedImages} checked, {failed.Distinct().Count()} failed: {string.Join( ", ", failed.Distinct().Take( 15 ) )}" );
+
 static class Visuals
 {
 	public static IEnumerable<T> GetVisualDescendantsOfType<T>( this Avalonia.Visual root ) =>

@@ -25,7 +25,18 @@ public static class CardFile
 
 	public static CardDefinition Parse( string json ) => Fix( JsonSerializer.Deserialize<CardDefinition>( json, Json ) );
 
-	public static CardDefinition Load( string path ) => Parse( File.ReadAllText( path ) );
+	public static CardDefinition Load( string path ) => Parse( ReadShared( path ) );
+
+	/// <summary>
+	/// Reads a file even while another program has it open (the s&amp;box editor watches and re-imports the project's
+	/// files while it runs), so cards and images never go missing just because the editor is open.
+	/// </summary>
+	public static string ReadShared( string path )
+	{
+		using var stream = new FileStream( path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete );
+		using var reader = new StreamReader( stream );
+		return reader.ReadToEnd();
+	}
 
 	/// <summary>The file's text, with \n line endings on every system so files diff cleanly in the game repo.</summary>
 	public static string Write( CardDefinition card ) => JsonSerializer.Serialize( card, Json ).Replace( "\r\n", "\n" ) + "\n";

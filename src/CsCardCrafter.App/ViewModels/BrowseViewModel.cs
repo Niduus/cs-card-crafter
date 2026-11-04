@@ -38,7 +38,15 @@ public sealed partial class BrowseViewModel : ObservableObject
 
 	public void Load( GameFolder game )
 	{
-		_all = (game?.LoadCards() ?? new()).Select( g => new BrowseItem(
+		var broken = new List<string>();
+		var cards = game?.LoadCards( broken ) ?? new();
+		if ( game is not null )
+		{
+			Services.Log.Write( $"Game folder {game.Root}: {cards.Count} cards read from {game.CardsFolder}" + (broken.Count > 0 ? $", {broken.Count} couldn't be read" : "") );
+			foreach ( var file in broken )
+				Services.Log.Write( "  Card file not read: " + file + (GameFolder.LastError( file ) is { } why ? " (" + why + ")" : "") );
+		}
+		_all = cards.Select( g => new BrowseItem(
 			g,
 			g.Card.Name,
 			CardParts.MasteryLabel( g.Card.Mastery ),
@@ -54,11 +62,40 @@ public sealed partial class BrowseViewModel : ObservableObject
 	/// <summary>How much of the card runs on blocks in the game (as its file holds them): "3/3", or "-" for a card with no effects.</summary>
 	static string Coverage( CardDefinition card )
 	{
+		try
+		{
+			return CoverageOf( card );
+		}
+		catch ( Exception e )
+		{
+			Services.Log.Write( $"  {card.Name}: its blocks couldn't be read ({e.GetType().Name}: {e.Message})" );
+			return "?";
+		}
+	}
+
+	static string CoverageOf( CardDefinition card )
+	{
 		var effects = ChaosSpells.Rules.EffectEngine.Of( card ).Where( e => e.Section is not (EffectSection.Flavor or EffectSection.ImportantTag or EffectSection.Considered) ).ToList();
 		return effects.Count == 0 ? "-" : $"{effects.Count( e => e.HasOperations )}/{effects.Count}";
 	}
 
 	partial void OnQueryChanged( string value ) => Filter();
+
+	/// <summary>A card the words match; a card the game's search can't read still matches by name (and is logged).</summary>
+	static bool Matches( BrowseItem item, string query )
+	{
+		if ( item.Name.Contains( query, StringComparison.OrdinalIgnoreCase ) )
+			return true;
+		try
+		{
+			return CardSearch.Matches( item.Card, query );
+		}
+		catch ( Exception e )
+		{
+			Services.Log.Write( $"Search \"{query}\" failed on {item.Name}: {e.GetType().Name}: {e.Message}" );
+			return false;
+		}
+	}
 
 	/// <summary>
 	/// The toolbar search bar: every game card the words match (the game's own search words, so "cost:2 fire" works),
@@ -70,7 +107,7 @@ public sealed partial class BrowseViewModel : ObservableObject
 			return new();
 		var q = query.Trim();
 		return _all
-			.Where( i => CardSearch.Matches( i.Card, q ) || i.Name.Contains( q, StringComparison.OrdinalIgnoreCase ) )
+			.Where( i => Matches( i, q ) )
 			.Select( ( item, order ) => (item, order, rank:
 				item.Name.Equals( q, StringComparison.OrdinalIgnoreCase ) ? 0 :
 				item.Name.StartsWith( q, StringComparison.OrdinalIgnoreCase ) ? 1 :
@@ -84,7 +121,7 @@ public sealed partial class BrowseViewModel : ObservableObject
 	void Filter()
 	{
 		Results.Clear();
-		foreach ( var item in _all.Where( i => string.IsNullOrWhiteSpace( Query ) || CardSearch.Matches( i.Card, Query ) ) )
+		foreach ( var item in _all.Where( i => string.IsNullOrWhiteSpace( Query ) || Matches( i, Query.Trim() ) ) )
 			Results.Add( item );
 		Summary = $"{Results.Count} of {_all.Count} cards";
 	}

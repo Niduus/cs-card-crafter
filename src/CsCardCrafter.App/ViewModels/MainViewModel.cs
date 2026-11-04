@@ -130,6 +130,7 @@ public sealed partial class MainViewModel : ObservableObject
 	{
 		Game = game;
 		Images.Game = game;
+		Images.Clear();
 		OnPropertyChanged( nameof( HasGame ) );
 		OnPropertyChanged( nameof( ShowChooseGame ) );
 		GameStatus = game is null ? "Chaos Spells game folder not found. Choose it to see art and cards." : $"Game: {Path.GetFileName( game.Root.TrimEnd( Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar ) )}";

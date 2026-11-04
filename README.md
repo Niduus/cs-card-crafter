@@ -19,6 +19,9 @@ does a **Choose the game folder…** button appear, and what was checked is writ
 `%APPDATA%\CSCardCrafter\find-game.txt`. **Game folder…** (bottom right) always lets you pick another copy. Cards added
 to or removed from the game folder while the crafter is open show up straight away.
 
+If cards, images or search ever look wrong, the crafter's log `%APPDATA%\CSCardCrafter\crafter-log.txt` lists the
+game folder it used, how many cards it read, and every card file or image it couldn't read, with the reason.
+
 ## Building from source
 
 1. Clone with the game inside it: `git clone --recursive https://github.com/Niduus/cs-card-crafter`

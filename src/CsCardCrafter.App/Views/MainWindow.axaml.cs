@@ -131,7 +131,18 @@ public partial class MainWindow : Window
 		if ( sender is not AutoCompleteBox box )
 			return;
 		e.Cancel = true;
-		box.ItemsSource = Vm.Browse.Search( e.Parameter );
+		try
+		{
+			var results = Vm.Browse.Search( e.Parameter );
+			box.ItemsSource = results;
+			if ( results.Count == 0 )
+				Vm.Status = Vm.Browse.All.Count == 0 ? "No cards to search: the game folder's Assets/cards has no card files the crafter could read." : $"No card matches \"{e.Parameter}\".";
+		}
+		catch ( Exception ex )
+		{
+			CsCardCrafter.App.Services.Log.Write( $"Search \"{e.Parameter}\" failed: {ex}" );
+			Vm.Status = $"Search failed: {ex.Message} (details in {CsCardCrafter.App.Services.Log.File})";
+		}
 		box.PopulateComplete();
 	}
 

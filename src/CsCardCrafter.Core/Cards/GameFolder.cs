@@ -71,6 +71,11 @@ public sealed class GameFolder
 	/// <summary>A file inside Assets as the asset path cards store ("cards/art/x.png").</summary>
 	public string AssetPath( string file ) => Path.GetRelativePath( Assets, file ).Replace( Path.DirectorySeparatorChar, '/' );
 
+	static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Errors = new();
+
+	/// <summary>Why a card file couldn't be read the last time, or null.</summary>
+	public static string LastError( string file ) => Errors.TryGetValue( file, out var e ) ? e : null;
+
 	/// <summary>Every card file in the game, read. Files that don't parse are skipped and listed in <paramref name="broken"/>.</summary>
 	public List<GameCard> LoadCards( List<string> broken = null )
 	{
@@ -83,8 +88,9 @@ public sealed class GameFolder
 			{
 				cards.Add( new GameCard( file, CardFile.Load( file ) ) );
 			}
-			catch ( Exception )
+			catch ( Exception e )
 			{
+				Errors[file] = $"{e.GetType().Name}: {e.Message}";
 				broken?.Add( file );
 			}
 		}
