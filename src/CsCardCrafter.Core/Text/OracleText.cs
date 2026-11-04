@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using ChaosSpells.Cards;
 using ChaosSpells.Rules;
+using ChaosSpells.Rules.Blocks;
 
 namespace CsCardCrafter.Core.Text;
 
@@ -33,9 +34,43 @@ public static class OracleText
 			"OP_IfMastery" => $"if your mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}",
 			"OP_OnlyIfMastery" => $"If your mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}:",
 			"OP_Activate" => "",
+			"OP_CombatPerCount" => CombatPerCount( block, op ),
+			"OP_IfHaveCard" => HaveCard( block, op ),
 			_ => block.Text( op ),
 		};
 		return Tidy( text );
+	}
+
+	/// <summary>An on/off option's words: "non-Fusion " when on, nothing when off (never the word "true" or "false").</summary>
+	static string Flag( Block block, OperationBlock op, string key, string words ) =>
+		block.Value( op, key ) == "true" ? words + " " : "";
+
+	/// <summary>A card name in quotes followed by a space, or nothing when the block names no card.</summary>
+	static string Named( Block block, OperationBlock op ) =>
+		block.Value( op, "Name" ) is { Length: > 0 } name ? $"\"{name}\" " : "";
+
+	/// <summary>"+1000 per non-Fusion "Yharon" card on your field or in your Abyss", "+50 per attached card", "+60 per card revealed during its Fusion Cast".</summary>
+	static string CombatPerCount( Block block, OperationBlock op )
+	{
+		var each = $"+{block.Value( op, "Amount" )} per ";
+		var card = $"{Flag( block, op, "NonFusion", "non-Fusion" )}{Named( block, op )}card";
+		return block.Value( op, "Where" ) switch
+		{
+			CombatPerCountBlock.Attached => each + "attached " + card,
+			CombatPerCountBlock.Revealed => each + card + " revealed during its Fusion Cast",
+			CombatPerCountBlock.YourAbyss => each + card + " in your Abyss",
+			CombatPerCountBlock.EveryFieldAndAbyss => each + card + " on the field and in any Abyss",
+			_ => each + card + " on your field or in your Abyss",
+		};
+	}
+
+	/// <summary>"you have a non-Fusion "Kitharas" Damage type card on the field or in your hand".</summary>
+	static string HaveCard( Block block, OperationBlock op )
+	{
+		var type = block.Value( op, "Type" ) is { Length: > 0 } t ? t + " type " : "";
+		var where = block.Value( op, "Where" ) == "Abyss" ? "in your Abyss" : "on the field or in your hand";
+		const string article = "a"; // printed cards say "a" whether or not this card itself counts
+		return $"you have {article} {Flag( block, op, "NonFusion", "non-Fusion" )}{Named( block, op )}{type}card {where}";
 	}
 
 	/// <summary>"Give 1 -400 damage mantle to target enemy", "you gain 3 100 Shields", "Allies gain 3 300 damage Blades".</summary>

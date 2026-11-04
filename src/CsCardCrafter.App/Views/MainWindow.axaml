@@ -308,11 +308,12 @@
 																						<ItemsControl ItemsSource="{Binding Params}">
 																							<ItemsControl.ItemTemplate>
 																								<DataTemplate x:DataType="vm:ParamViewModel">
-																									<Grid ColumnDefinitions="80,*" Margin="0,2,0,0">
-																										<TextBlock Classes="label" Text="{Binding Label}" FontSize="12" TextTrimming="CharacterEllipsis" />
-																										<ComboBox Grid.Column="1" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value}" IsVisible="{Binding HasChoices}" HorizontalAlignment="Stretch" FontSize="12" />
-																										<TextBox Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding IsText}" FontSize="12" MinHeight="26" Padding="4,2" />
-																										<ItemsControl Grid.Column="1" ItemsSource="{Binding PlaceOptions}" IsVisible="{Binding IsPlaces}">
+																									<StackPanel Margin="0,4,0,0" Spacing="1">
+																										<!-- The label sits above its box at full width, so long labels wrap instead of being cut off -->
+																										<TextBlock Text="{Binding Label}" FontSize="12" Opacity="0.75" TextWrapping="Wrap" IsVisible="{Binding !IsFlag}" />
+																										<ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding Value}" IsVisible="{Binding HasChoices}" HorizontalAlignment="Stretch" FontSize="12" />
+																										<TextBox Text="{Binding Value}" IsVisible="{Binding IsTyped}" FontSize="12" MinHeight="26" Padding="4,2" />
+																										<ItemsControl ItemsSource="{Binding PlaceOptions}" IsVisible="{Binding IsPlaces}">
 																											<ItemsControl.ItemsPanel>
 																												<ItemsPanelTemplate>
 																													<WrapPanel />
@@ -324,7 +325,10 @@
 																												</DataTemplate>
 																											</ItemsControl.ItemTemplate>
 																										</ItemsControl>
-																									</Grid>
+																										<CheckBox IsChecked="{Binding On}" IsVisible="{Binding IsFlag}" FontSize="12">
+																											<TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+																										</CheckBox>
+																									</StackPanel>
 																								</DataTemplate>
 																							</ItemsControl.ItemTemplate>
 																						</ItemsControl>
