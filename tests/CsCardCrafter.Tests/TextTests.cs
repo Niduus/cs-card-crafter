@@ -177,3 +177,35 @@ public class KeywordLineTests
 		Assert.Contains( "{BEG}Final Will.{END}", CardWriter.Description( card ) );
 	}
 }
+
+/// <summary>Justin, 2026-11-04: "If this card is tributed from your hand or field and is in your Abyss, Evade Cast this card", from blocks.</summary>
+public class TributedEvadeTests
+{
+	static CardEffect Effect( string from, string ifCard, string places, string thenCard, string subject = "this card" ) => new()
+	{
+		Section = EffectSection.Persistent,
+		When = { BlockRegistry.Get( "OP_WhenTributed" ).Make( ("Card", subject), ("From", from) ) },
+		If = { BlockRegistry.Get( "OP_IfCardIsIn" ).Make( ("Card", ifCard), ("Places", places) ) },
+		Then = { BlockRegistry.Get( "OP_EvadeCastSelf" ).Make( ("Card", thenCard) ) },
+	};
+
+	[Fact]
+	public void WritesTheSentence()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Fire" };
+		Assert.Equal( "If this card is tributed from your hand or field and is in your Abyss, Evade Cast this card.",
+			EffectWriter.Write( card, Effect( "hand, field", "this card", "Abyss", "this card" ) ) );
+		Assert.Equal( "If this card is tributed from your field and is in your hand or Void, Evade Cast this card.",
+			EffectWriter.Write( card, Effect( "field", "this card", "hand, Void", "this card" ) ) );
+		Assert.Equal( "If another card of yours is tributed and that card is in your Abyss, Evade Cast that card.",
+			EffectWriter.Write( card, Effect( "", "that card", "Abyss", "that card", "another card of yours" ) ) );
+	}
+
+	[Fact]
+	public void MordiaelStillReadsAsPrinted()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Fire" };
+		var e = new CardEffect { Section = EffectSection.Persistent, When = { new OperationBlock { Op = "OP_WhenTributed" } }, Then = { new OperationBlock { Op = "OP_EvadeCastSelf" } } };
+		Assert.Equal( "If this card is tributed, Evade Cast this card.", EffectWriter.Write( card, e ) );
+	}
+}

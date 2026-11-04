@@ -311,7 +311,19 @@
 																									<Grid ColumnDefinitions="80,*" Margin="0,2,0,0">
 																										<TextBlock Classes="label" Text="{Binding Label}" FontSize="12" TextTrimming="CharacterEllipsis" />
 																										<ComboBox Grid.Column="1" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value}" IsVisible="{Binding HasChoices}" HorizontalAlignment="Stretch" FontSize="12" />
-																										<TextBox Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding !HasChoices}" FontSize="12" MinHeight="26" Padding="4,2" />
+																										<TextBox Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding IsText}" FontSize="12" MinHeight="26" Padding="4,2" />
+																										<ItemsControl Grid.Column="1" ItemsSource="{Binding PlaceOptions}" IsVisible="{Binding IsPlaces}">
+																											<ItemsControl.ItemsPanel>
+																												<ItemsPanelTemplate>
+																													<WrapPanel />
+																												</ItemsPanelTemplate>
+																											</ItemsControl.ItemsPanel>
+																											<ItemsControl.ItemTemplate>
+																												<DataTemplate x:DataType="vm:PlaceOption">
+																													<CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" FontSize="12" MinHeight="24" Padding="2,0,8,0" />
+																												</DataTemplate>
+																											</ItemsControl.ItemTemplate>
+																										</ItemsControl>
 																									</Grid>
 																								</DataTemplate>
 																							</ItemsControl.ItemTemplate>

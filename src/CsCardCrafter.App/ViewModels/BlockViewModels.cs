@@ -17,7 +17,12 @@ public sealed partial class ParamViewModel : ObservableObject
 	public BlockParam Param { get; }
 	public string Label => Param.Label;
 	public IReadOnlyList<string> Choices { get; }
-	public bool HasChoices => Choices.Count > 0;
+	public bool HasChoices => Choices.Count > 0 && !IsPlaces;
+	public bool IsText => !HasChoices && !IsPlaces;
+
+	/// <summary>A places blank (hand, field, Abyss...): one tick box per place, any number ticked.</summary>
+	public bool IsPlaces => Param.Kind == ParamKind.Places;
+	public IReadOnlyList<PlaceOption> PlaceOptions { get; }
 
 	public ParamViewModel( OperationBlock op, BlockParam param, Action changed )
 	{
@@ -28,8 +33,21 @@ public sealed partial class ParamViewModel : ObservableObject
 		{
 			ParamKind.Who => Who.All,
 			ParamKind.Mastery => new[] { "" }.Concat( CardParts.Masteries ).ToArray(),
+			ParamKind.Card => param.Choices ?? CardRef.All,
+			ParamKind.Places => param.Choices ?? Places.All,
 			_ => param.Choices ?? Array.Empty<string>(),
 		};
+		PlaceOptions = IsPlaces ? Choices.Select( p => new PlaceOption( this, p ) ).ToList() : Array.Empty<PlaceOption>();
+	}
+
+	/// <summary>Ticks or unticks one place and stores the set ("hand, field").</summary>
+	internal void SetPlace( string place, bool on )
+	{
+		var set = Places.Parse( Value );
+		set.RemoveAll( p => p.Equals( place, StringComparison.OrdinalIgnoreCase ) );
+		if ( on )
+			set.Add( place );
+		Value = Places.Join( set );
 	}
 
 	public string Value
@@ -43,6 +61,32 @@ public sealed partial class ParamViewModel : ObservableObject
 			_op.Params[Param.Key] = value;
 			OnPropertyChanged();
 			_changed();
+		}
+	}
+}
+
+/// <summary>One tick box of a places blank: "hand", "field", "Abyss"...</summary>
+public sealed partial class PlaceOption : ObservableObject
+{
+	readonly ParamViewModel _param;
+
+	public string Name { get; }
+
+	public PlaceOption( ParamViewModel param, string name )
+	{
+		_param = param;
+		Name = name;
+	}
+
+	public bool IsChecked
+	{
+		get => Places.Parse( _param.Value ).Contains( Name, StringComparer.OrdinalIgnoreCase );
+		set
+		{
+			if ( value == IsChecked )
+				return;
+			_param.SetPlace( Name, value );
+			OnPropertyChanged();
 		}
 	}
 }

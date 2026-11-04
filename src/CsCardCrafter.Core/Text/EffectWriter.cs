@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ChaosSpells.Cards;
 using ChaosSpells.Rules;
 
@@ -83,10 +84,26 @@ public static class EffectWriter
 	{
 		var when = effect.When.Where( w => w.Op != "OP_Activate" ).Select( w => OracleText.Of( w ).TrimEnd( ':' ) ).Where( t => t.Length > 0 ).ToList();
 		var activated = effect.When.Any( w => w.Op == "OP_Activate" );
-		var conditions = effect.If.Select( OracleText.Of ).Where( t => t.Length > 0 ).Select( Condition ).ToList();
 		var costs = effect.Cost.Select( c => OracleText.Of( c ).TrimEnd( ':' ) ).Where( t => t.Length > 0 ).ToList();
 
+		// A condition on the card the trigger is about joins the trigger: "If this card is tributed from your hand or
+		// field and is in your Abyss" (Justin, 2026-11-04), "If another card of yours is tributed and that card is in ...".
+		var ifs = effect.If.ToList();
 		var lead = string.Join( " or ", when );
+		if ( when.Count == 1 && !activated )
+		{
+			var subject = TriggerSubject( effect.When.First( w => w.Op != "OP_Activate" ) );
+			foreach ( var op in ifs.Where( op => op.Op == "OP_IfCardIsIn" ).ToList() )
+			{
+				var block = BlockRegistry.Get( op.Op );
+				var card = block.Value( op, "Card" );
+				var rest = Regex.Replace( OracleText.Of( op ), "^if " + Regex.Escape( card ) + " ", "" );
+				lead += card == subject ? " and " + rest : $" and {card} {rest}";
+				ifs.Remove( op );
+			}
+		}
+		var conditions = ifs.Select( OracleText.Of ).Where( t => t.Length > 0 ).Select( Condition ).ToList();
+
 		if ( activated && effect.Section is EffectSection.Abyss or EffectSection.Void )
 			lead = Join( lead, $"While this card is in the {effect.Section}" );
 		if ( conditions.Count > 0 )
@@ -99,10 +116,22 @@ public static class EffectWriter
 		var head = Join( lead, cost );
 		var body = Chain( effect.Then, first: true ).TrimStart( ',', ' ' );
 		var lasting = Sentences( effect.Always );
-		var text = head.Length > 0 && body.Length > 0 ? $"{head}: {OracleText.Continue( body )}" : head + body;
+		// "If this card is tributed, Evade Cast this card": an "If ..." trigger with nothing to pay reads on with a comma,
+		// as the game's cards print it (Kitharas Mordiael).
+		var comma = !activated && costs.Count == 0 && conditions.Count == 0 && when.Count == 1 && lead.StartsWith( "If ", StringComparison.Ordinal );
+		var text = head.Length > 0 && body.Length > 0 ? $"{head}{(comma ? "," : ":")} {OracleText.Continue( body )}" : head + body;
 		if ( text.Length > 0 && lasting.Length > 0 )
 			return Finish( text ) + " " + lasting;
 		return text.Length > 0 ? Finish( text ) : lasting;
+	}
+
+	/// <summary>The card a WHEN block is about, as a card blank names it ("this card"), or empty when it names another.</summary>
+	static string TriggerSubject( OperationBlock when )
+	{
+		var block = BlockRegistry.Get( when.Op );
+		var card = block?.Params.Any( p => p.Key == "Card" ) == true ? block.Value( when, "Card" ) : "";
+		// Triggers with no card blank are about this card ("When this card is sent to the Abyss").
+		return card.Length == 0 || card == CardRef.This ? CardRef.This : "";
 	}
 
 	/// <summary>A condition reads as an "if" clause unless it already sets its own timing ("While...", "During...", "If Enhanced:").</summary>

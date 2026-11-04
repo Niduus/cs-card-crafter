@@ -131,6 +131,26 @@ vm.SetGame( null );
 vm.TrySetGame( Path.Combine( gameRoot, "Assets", "cards" ) );
 Console.WriteLine( $"cards folder as game folder: {(vm.Game is null ? "none" : "found")}, {vm.Browse.All.Count} cards" );
 
+// "If this card is tributed from your hand or field and is in your Abyss, Evade Cast this card", built from blocks.
+vm.TrySetGame( gameRoot );
+vm.NewCommand.Execute( null );
+vm.Name = "Ashen Phoenix";
+vm.AddEffectCommand.Execute( "Persistent" );
+var tribEffect = vm.Effects[^1];
+tribEffect.Slots[0].Add( ChaosSpells.Rules.BlockRegistry.Get( "OP_WhenTributed" ) );
+var tribWhen = tribEffect.Slots[0].Blocks[^1];
+foreach ( var place in tribWhen.Params.First( p => p.IsPlaces ).PlaceOptions ) place.IsChecked = true;
+tribEffect.Slots[1].Add( ChaosSpells.Rules.BlockRegistry.Get( "OP_IfCardIsIn" ) );
+tribEffect.Slots[3].Add( ChaosSpells.Rules.BlockRegistry.Get( "OP_EvadeCastSelf" ) );
+Pump();
+Console.WriteLine( $"tributed effect suggests: {tribEffect.Suggested}" );
+Console.WriteLine( $"tributed WHEN stores From = '{tribWhen.Op.Params["From"]}'" );
+tabs.SelectedIndex = 1;
+Pump();
+foreach ( var sv in main.GetVisualDescendantsOfType<ScrollViewer>().Where( sv => sv.IsEffectivelyVisible && sv.Extent.Height > sv.Viewport.Height ) )
+	sv.Offset = new Avalonia.Vector( 0, sv.Extent.Height - sv.Viewport.Height );
+Save( main, "window-tributed" );
+
 // Card faces of a few game cards, next to each other.
 var wanted = args.Skip( 1 ).DefaultIfEmpty( "Glacier Heart,Kitharas Moon,Luminous the Curious,Borealis the Creation Dragon of Ice,Healing Blade" ).First().Split( ',' );
 var game = vm.Game;
