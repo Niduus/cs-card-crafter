@@ -126,7 +126,8 @@ public static class EffectWriter
 		if ( texts.Count == 0 )
 			return "";
 		var bare = effect.Section == EffectSection.Field && card?.Types.Any( t => t is "Domain" or "PositiveAura" or "NegativeAura" or "Aura" ) == true;
-		if ( bare || texts[0].StartsWith( "While ", StringComparison.OrdinalIgnoreCase ) )
+		// "This card gains additional Masteries ..." is fixed at the Fusion Cast, not something that holds on the field.
+		if ( bare || texts[0].StartsWith( "While ", StringComparison.OrdinalIgnoreCase ) || texts[0].StartsWith( "This card gains additional Masteries" ) )
 			return Sentences( effect.Always );
 		var where = effect.Section == EffectSection.Field ? "on the field" : $"in the {effect.Section}";
 		var first = Finish( $"While this card is {where}, {OracleText.Continue( LowerFirst( texts[0] ) )}" );
@@ -268,6 +269,11 @@ public static class EffectWriter
 			var sentence = $"{OracleText.Capitalize( parts[gate] )} {AfterColon( after )}".Trim();
 			return before.Length == 0 ? (first ? sentence : ", Then " + sentence) : Finish( before ) + " " + sentence;
 		}
+		// A block that opens its own sentence ("Then, if you do not control another "Kitharas" card, Void this card")
+		// ends the one before it rather than stacking a second "Then".
+		var own = parts.Count < 2 ? -1 : parts.FindIndex( 1, p => p.StartsWith( "Then, " ) );
+		if ( own > 0 )
+			return Finish( Chain( parts.Take( own ), first ) ) + " " + Chain( parts.Skip( own ), true ).TrimStart( ',', ' ' );
 		var text = "";
 		for ( var i = 0; i < parts.Count; i++ )
 		{

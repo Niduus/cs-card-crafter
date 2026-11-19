@@ -122,6 +122,17 @@ public class TextTests
 	}
 
 	[Fact]
+	public void AhziaelWritesItsPrintedText()
+	{
+		var game = CsCardCrafter.Core.Cards.GameFolder.Find();
+		var card = game.LoadCards().First( c => c.Card.Name == "Ahziael, the True Form of Kitharas" ).Card;
+		var effects = card.Effects.Where( e => e.HasOperations && e.Section != EffectSection.Option ).ToList();
+		Assert.NotEmpty( effects );
+		foreach ( var e in effects.Where( e => !string.IsNullOrEmpty( e.Text ) ) ) // the keyword line is printed from the Description only
+			Assert.Equal( e.Text, EffectWriter.Write( card, e ) );
+	}
+
+	[Fact]
 	public void WordingRules()
 	{
 		// A count before a value is a word; Select and Draw; HP; "Deck" alone is either deck.

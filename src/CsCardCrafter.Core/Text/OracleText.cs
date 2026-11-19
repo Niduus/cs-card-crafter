@@ -121,7 +121,14 @@ public static class OracleText
 		var masteries = block.Value( op, "Masteries" ).Split( ',', '/' ).Select( m => Mastery( m.Trim() ).Trim() ).Where( m => m.Length > 0 ).ToList();
 		var parts = masteries.Select( m => $"1 {m} card" ).ToList();
 		if ( block.Value( op, "Named" ) is { Length: > 0 } named )
-			parts.Add( $"1 other \"{named}\" card" );
+		{
+			var count = Math.Max( 1, (int)block.Number( op, "NamedCount" ) );
+			var orMore = block.Value( op, "NamedOrMore" ) == "true";
+			var light = block.Number( op, "ExactLight" ) > 0 ? $"{block.Value( op, "ExactLight" )} Light Mana " : "";
+			parts.Add( count == 1 && !orMore && light.Length == 0
+				? $"1 other \"{named}\" card"
+				: $"{(light.Length > 0 && count < Words.Length ? Words[count] : count.ToString())}{(orMore ? " or more" : "")} {light}\"{named}\" card{(count == 1 && !orMore ? "" : "s")}" );
+		}
 		if ( block.Number( op, "Count" ) > 0 )
 			parts.Add( $"{block.Value( op, "Count" )} other cards" );
 		if ( parts.Count > 0 )
