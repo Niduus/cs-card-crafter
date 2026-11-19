@@ -26,17 +26,17 @@ public class TextTests
 				Op( "OP_GiveBoon", ("Kind", "Mantle"), ("Count", "1"), ("Amount", "100"), ("Who", "target enemy") ),
 			},
 		};
-		Assert.Equal( "Combat: 150 Ice damage to target enemy, Then you gain 1 400 Shield, Also give 1 -100 damage mantle to target enemy.",
+		Assert.Equal( "Combat: 150 Ice damage to target enemy, Then you gain one 400 Shield, Also give one -100 damage mantle to target enemy.",
 			EffectWriter.Write( Card(), effect ) );
 	}
 
 	[Fact]
 	public void BoonsCountMagnitudeKindWho()
 	{
-		Assert.Equal( "Allies gain 3 350 Shields", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Shield"), ("Count", "3"), ("Amount", "350"), ("Who", "allies") ) ) );
-		Assert.Equal( "you gain 2 250 damage Blades", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Blade"), ("Count", "2"), ("Amount", "250"), ("Who", "you") ) ) );
-		Assert.Equal( "Give 1 -15% lifesteal mantle to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "LifestealMantle"), ("Count", "1"), ("Amount", "15"), ("Percent", "%"), ("Who", "target enemy") ) ) );
-		Assert.Equal( "Give 2 400 Traps to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Trap"), ("Count", "2"), ("Amount", "400"), ("Who", "target enemy") ) ) );
+		Assert.Equal( "Allies gain three 350 Shields", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Shield"), ("Count", "3"), ("Amount", "350"), ("Who", "allies") ) ) );
+		Assert.Equal( "you gain two 250 damage Blades", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Blade"), ("Count", "2"), ("Amount", "250"), ("Who", "you") ) ) );
+		Assert.Equal( "Give one -15% lifesteal mantle to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "LifestealMantle"), ("Count", "1"), ("Amount", "15"), ("Percent", "%"), ("Who", "target enemy") ) ) );
+		Assert.Equal( "Give two 400 Traps to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Trap"), ("Count", "2"), ("Amount", "400"), ("Who", "target enemy") ) ) );
 	}
 
 	[Fact]
@@ -69,7 +69,7 @@ public class TextTests
 			Cost = { Op( "OP_DiscardSelf" ) },
 			Then = { Op( "OP_GiveBoon", ("Kind", "Shield"), ("Count", "1"), ("Amount", "25"), ("Percent", "%"), ("Who", "allies") ) },
 		};
-		Assert.Equal( "You may discard this card: Allies gain 1 25% Shield.", EffectWriter.Write( Card(), effect ) );
+		Assert.Equal( "You may discard this card: Allies gain one 25% Shield.", EffectWriter.Write( Card(), effect ) );
 	}
 
 	[Fact]
@@ -102,22 +102,37 @@ public class TextTests
 		Assert.Contains( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "Not once per" ) );
 	}
 
-	/// <summary>Of the game's effects that already run on blocks, most read back word for word; the rest are older wording.</summary>
+	/// <summary>
+	/// Every playable card's effects write clean text from their blocks: no block ids, no on/off words, no doubled
+	/// leads, no "any location" restrictions and no listed decks in a restriction (Justin, 2026-11-19).
+	/// </summary>
 	[Fact]
-	public void MatchesMostGameCards()
+	public void EveryGameCardWritesClean()
 	{
 		var game = CsCardCrafter.Core.Cards.GameFolder.Find();
-		int same = 0, total = 0;
-		static string N( string s ) => System.Text.RegularExpressions.Regex.Replace( s.ToLowerInvariant().Replace( "''", "'" ), "[^a-z0-9%]+", " " ).Trim();
-		foreach ( var c in game.LoadCards() )
-			// Only printed effects: a card may hold its keyword blocks in an unprinted Keyword effect.
-			foreach ( var e in EffectEngine.Of( c.Card ).Where( e => e.HasOperations && !string.IsNullOrWhiteSpace( e.Text ) ) )
+		var bad = new List<string>();
+		foreach ( var c in game.LoadCards().Where( c => !c.Card.IsDev ) )
+			foreach ( var e in c.Card.Effects.Where( e => e.HasOperations && e.Section != EffectSection.Option ) )
 			{
-				total++;
-				if ( N( EffectWriter.Write( c.Card, e ) ) == N( e.Text ) )
-					same++;
+				var text = EffectWriter.Write( c.Card, e );
+				if ( System.Text.RegularExpressions.Regex.IsMatch( text, @"OP_|\btrue\b|\bfalse\b|Activate only if Activate|\s{2}|""""|\b1 \d|\bgo off\b|any location \(|\(Hand, Field" ) )
+					bad.Add( $"{c.Card.Name}: {text}" );
 			}
-		Assert.True( same * 2 > total, $"{same}/{total}" );
+		Assert.True( bad.Count == 0, string.Join( "\n", bad ) );
+	}
+
+	[Fact]
+	public void WordingRules()
+	{
+		// A count before a value is a word; Select and Draw; HP; "Deck" alone is either deck.
+		Assert.Equal( "you gain three 300 damage Blades", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Blade"), ("Count", "3"), ("Amount", "300"), ("Who", "you") ) ) );
+		Assert.Equal( "Select and Draw 2 \"Kitharas\" cards of different Card Types from your Deck",
+			OracleText.Of( Op( "OP_SelectAndDraw", ("Amount", "2"), ("Name", "Kitharas"), ("Pile", "Deck or Side Deck"), ("Distinct", "true") ) ) );
+		Assert.Equal( "discard 1 select non-\"Kitharas\" Crimson or Life card", OracleText.Of( Op( "OP_CostDiscardMatching", ("Amount", "1"), ("Mastery", "Crimson/Life"), ("Except", "Kitharas") ) ) );
+		Assert.Equal( "plus 3 Crimson damage per 1% missing HP", OracleText.Tidy( "plus 3 Crimson damage per 1% missing Health" ) );
+		// The True Form lock: your cards only, revealed Locations named, the field always in.
+		Assert.Equal( "all non-\"Kitharas\" cards you control cannot activate their effects, including from the Hand, Abyss and/or Void",
+			OracleText.Of( Op( "OP_OnlyNamedEffects", ("Name", "Kitharas") ) ) );
 	}
 }
 
