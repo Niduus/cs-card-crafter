@@ -218,16 +218,24 @@ public sealed class CardFaceView : Control
 			{
 				var width = line.Sum( w => w.Width ) + gap * Math.Max( 0, line.Count - 1 );
 				var x = box.X + (box.Width - width) / 2;
-				foreach ( var word in line )
+				for ( var w = 0; w < line.Count; w++ )
 				{
-					foreach ( var (run, text) in word.Pieces )
+					var word = line[w];
+					for ( var r = 0; r < word.Pieces.Count; r++ )
 					{
+						var (run, text) = word.Pieces[r];
 						// Lines sit at 84% of the font size, as the game draws them; centre the glyphs in that line.
 						var top = y + (lineHeight - text.Height) / 2;
 						var brush = new SolidColorBrush( ParseColor( run.Color ) );
 						DrawOutlined( ctx, text, new Point( x, top ), brush, size * 0.03 / 2 );
 						if ( run.Underline )
-							ctx.DrawLine( new Pen( brush, size * 0.07 ), new Point( x, top + text.Baseline + size * 0.1 ), new Point( x + text.Width, top + text.Baseline + size * 0.1 ) );
+						{
+							// Black, whatever the word's colour, and carried across the gap into the next underlined word
+							// ("True Damage" is one line), as the game draws it.
+							var joins = r == word.Pieces.Count - 1 && w + 1 < line.Count && line[w + 1].Pieces.Count > 0 && line[w + 1].Pieces[0].Run.Underline;
+							var under = top + text.Baseline + size * 0.1;
+							ctx.DrawLine( new Pen( Brushes.Black, size * 0.07 ), new Point( x, under ), new Point( x + text.Width + (joins ? gap : 0), under ) );
+						}
 						x += text.Width;
 					}
 					x += gap;
