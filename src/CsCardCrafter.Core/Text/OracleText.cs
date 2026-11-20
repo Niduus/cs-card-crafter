@@ -44,7 +44,11 @@ public static class OracleText
 			"OP_CostDiscardMatching" => DiscardMatching( block, op ),
 			"OP_GrantAnchored" => Grant( block, op, "Anchored" + (block.Number( op, "Rounds" ) > 0 ? " " + block.Value( op, "Rounds" ) : "") ),
 			"OP_GrantKeyword" => Grant( block, op, KeywordName( block.Value( op, "Keyword" ) ) ),
-			"OP_ConvertBoons" => $"Select and convert up to {block.Value( op, "Amount" )} {block.Value( op, "Percent" )} {Spaced( block.Value( op, "Kind" ) )}s on yourself",
+			"OP_ConvertBoons" => $"{(block.Value( op, "Select" ) == "Select" ? "Select and convert" : "Convert")} up to {block.Value( op, "Amount" )} {block.Value( op, "Percent" )} {Spaced( block.Value( op, "Kind" ) )}s on yourself",
+			// "Tribute 1 or more of your Select flat Shields, paying 1 Light Mana each" (Ice Shattering Discovery, game v0.8.47).
+			"OP_TributeFlatShields" => $"Tribute 1 or more of your {(block.Value( op, "Select" ) == "Select" ? "Select " : "")}flat Shields, paying 1 Light Mana each",
+			"OP_NegateNameUntilDraw" => "Until the start of your next Draw Stage, cards with the same name as the voided card are negated"
+				+ (block.Value( op, "Also" ) != "false" ? " (including cards with this card's name)" : ""),
 			"OP_Anchored" => block.Number( op, "Rounds" ) > 0 ? $"Anchored {block.Value( op, "Rounds" )} Rounds" : "Anchored",
 			"OP_Frontline" => block.Number( op, "Value" ) > 0 ? $"Frontline {block.Value( op, "Count" )} ({block.Value( op, "Value" )} each)" : $"Frontline {block.Value( op, "Count" )}",
 			"OP_Exclusive" => "Exclusive: " + string.Join( ", ", block.Value( op, "Masteries" ).Split( '/', ',' ).Select( m => Title( Mastery( m.Trim() ).Trim() ) ).Where( m => m.Length > 0 ) ),
@@ -114,7 +118,10 @@ public static class OracleText
 			"Any" => "your Deck or Abyss",
 			var other => "your " + other,
 		};
-		return $"Select and Draw {block.Value( op, "Amount" )} {kind}{Mastery( block.Value( op, "Mastery" ) )}{Named( block, op )}card{distinct}{mentions} from {pile}";
+		// "..., other than "Freezing Mana"" (game v0.8.47).
+		var except = block.Value( op, "Except" ) is { Length: > 0 } x
+			? ", other than " + string.Join( " or ", x.Split( '|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).Select( n => $"\"{n}\"" ) ) : "";
+		return $"Select and Draw {block.Value( op, "Amount" )} {kind}{Mastery( block.Value( op, "Mastery" ) )}{Named( block, op )}card{distinct}{mentions} from {pile}{except}";
 	}
 
 	/// <summary>
