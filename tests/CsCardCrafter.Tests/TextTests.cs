@@ -242,6 +242,22 @@ public class RevampWordingTests
 	static OperationBlock Op( string id, params (string, string)[] values ) => BlockRegistry.Get( id ).Make( values );
 
 	[Fact]
+	public void SelectPicksForBoonsAndOvertimes()
+	{
+		Assert.Equal( "Destroy 3 Select Shields on target enemy", OracleText.Of( Op( "OP_DestroyBoons", ("Amount", "3"), ("Kind", "Shield"), ("Who", "target enemy"), ("Select", "Select") ) ) );
+		Assert.Equal( "Destroy 3 Shields on target enemy", OracleText.Of( Op( "OP_DestroyBoons", ("Amount", "3"), ("Kind", "Shield"), ("Who", "target enemy") ) ) );
+		Assert.Equal( "Detonate 1 Select Damage Overtime on target enemy", OracleText.Of( Op( "OP_DetonateOverTime", ("Amount", "1"), ("Kind", "Damage"), ("Who", "target enemy"), ("Select", "Select") ) ) );
+		Assert.Equal( "Tribute 1 or more of your Select flat Shields, paying 1 Light Mana each", OracleText.Of( Op( "OP_TributeFlatShields", ("Select", "Select") ) ) );
+	}
+
+	[Fact]
+	public void SelectAndDrawOtherThanAName()
+	{
+		Assert.Equal( "Select and Draw 1 card that mentions \"Light Mana\" from your Deck, other than \"Freezing Mana\"",
+			OracleText.Of( Op( "OP_SelectAndDraw", ("Amount", "1"), ("Mentions", "Light Mana"), ("Pile", "Deck or Side Deck"), ("Except", "Freezing Mana") ) ) );
+	}
+
+	[Fact]
 	public void CombatListsWhatTheTargetGetsAndTimesCrowdControl()
 	{
 		var card = new CardDefinition { Name = "Test", Mastery = "Spectre", Combat = "160" };
