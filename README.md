@@ -85,5 +85,5 @@ game gets a new block, update the submodule and it shows up in the **+ Add** men
 | `src/CsCardCrafter.Core` | No UI: the game's code, card files (`CardFile`, `GameFolder`), text writing (`OracleText`, `EffectWriter`, `CardWriter`) and `CardChecks`. |
 | `src/CsCardCrafter.App` | The Avalonia app. `CardFaceView` draws the card face. |
 | `tests/CsCardCrafter.Tests` | `dotnet test`: every game card round-trips unchanged, oracle wording, install. |
-| `.github/workflows/release.yml` | Pushing a `v*` tag builds the exe and publishes a GitHub Release (needs a `GAME_REPO_TOKEN` secret that can read the game repo). |
+| `.github/workflows/release.yml` | Bumping `<Version>` in `Directory.Build.props` on main (or pushing a `v*` tag) builds, tests and publishes a GitHub Release with the exe and zip. Needs a `GAME_REPO_TOKEN` secret that can read the game repo. |
 | `tools/Screenshots` | Renders the app without a screen into PNGs (`docs/screenshots`). |

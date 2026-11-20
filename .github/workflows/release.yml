@@ -1,33 +1,100 @@
-# Builds CSCardCrafter.exe (one file, nothing to install) and publishes it as a GitHub Release when a version tag
-# such as v0.1.0 is pushed. The game repo is a private submodule, so checkout needs a token that can read it:
-# add a repository secret GAME_REPO_TOKEN (a fine-grained token with read access to Niduus/chaos_spells_sbox).
+# Publishes CS Card Crafter as a GitHub Release (CSCardCrafter.exe + CSCardCrafter-<version>.zip).
+#
+# A new release is made automatically whenever <Version> in Directory.Build.props changes on main:
+# bump the version, push, and the release appears a few minutes later. Pushing a v* tag or running the
+# workflow by hand (Actions > Release > Run workflow) does the same. A version that already has a
+# release is skipped, so re-runs are safe.
+#
+# The game repo is a private submodule, so checkout needs a token that can read it: add a repository
+# secret GAME_REPO_TOKEN (a fine-grained token with Contents: read on Niduus/chaos_spells_sbox).
 name: Release
 
 on:
   push:
+    branches: [ main ]
+    paths: [ "Directory.Build.props" ]
     tags: [ "v*" ]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
           token: ${{ secrets.GAME_REPO_TOKEN }}
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-      - name: Test
-        run: dotnet test tests/CsCardCrafter.Tests
-      - name: Publish
-        run: dotnet publish src/CsCardCrafter.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Read version
+        id: ver
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" publish/CSCardCrafter.exe --title "CS Card Crafter ${{ github.ref_name }}" --generate-notes
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -1)
+          if [ -z "$version" ]; then echo "No <Version> in Directory.Build.props"; exit 1; fi
+          tag="v$version"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "$tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match Directory.Build.props version $version"; exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists, nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.ver.outputs.skip != 'true'
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        if: steps.ver.outputs.skip != 'true'
+        run: dotnet test tests/CsCardCrafter.Tests
+
+      - name: Publish
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          dotnet publish src/CsCardCrafter.App -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish
+          cd publish && 7z a "../CSCardCrafter-${{ steps.ver.outputs.version }}.zip" CSCardCrafter.exe
+
+      - name: Release notes
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$tag" | head -1 || true)
+          {
+            echo "Download **CSCardCrafter.exe** (one file, nothing to install) or the zip, then run it."
+            echo
+            echo "## Changes"
+            if [ -n "$prev" ]; then range="$prev..HEAD"; else range="HEAD"; fi
+            git log --no-merges --pretty='- %s' $range -- . ':(exclude)external' | head -50
+            echo
+            echo "Game code: Niduus/chaos_spells_sbox @ $(git -C external/chaos_spells_sbox rev-parse --short HEAD)"
+          } > notes.md
+          cat notes.md
+
+      - name: Release
+        if: steps.ver.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            publish/CSCardCrafter.exe "CSCardCrafter-${{ steps.ver.outputs.version }}.zip" \
+            --target "$GITHUB_SHA" --title "CS Card Crafter ${{ steps.ver.outputs.version }}" \
+            --notes-file notes.md --latest
