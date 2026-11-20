@@ -307,6 +307,11 @@ public static class EffectWriter
 		if ( effect.Section == EffectSection.Field && when.Count > 0 && !activated && !response && !Passing( card )
 			&& effect.When.All( w => !SelfTriggers.Contains( w.Op ) || w.Op == "OP_WhenTributed" && TriggerSubject( w ) != CardRef.This ) )
 			lead = $"While this card is on the field, {LowerWhen( lead )}";
+		// An Aura's activated effects work from the Aura zone and say so (Kitharas Was Silenced, Justin 2026-11-20):
+		// "While this card is in your Aura, you can Evade Cast ...".
+		var fromAura = effect.Section == EffectSection.Field && activated && IsAura( card );
+		if ( fromAura )
+			lead = lead.Length == 0 ? "While this card is in your Aura" : $"While this card is in your Aura, {LowerWhen( lead )}";
 		// Effects that work from the Abyss or Void say so first, unless the trigger is this card arriving there.
 		if ( effect.Section is EffectSection.Abyss or EffectSection.Void && !effect.When.Any( w => w.Op == "OP_WhenSentTo" ) )
 		{
@@ -329,6 +334,9 @@ public static class EffectWriter
 		// "If this card is tributed, Evade Cast this card": an "If ..." trigger with nothing to pay reads on with a comma,
 		// as the game's cards print it (Kitharas Mordiael).
 		var comma = !activated && costs.Count == 0 && conditions.Count == 0 && when.Count == 1 && lead.StartsWith( "If ", StringComparison.Ordinal );
+		// An optional effect with nothing to pay says "you can" before what it does ("While this card is in your Aura, you can ...").
+		if ( fromAura && costs.Count == 0 && conditions.Count == 0 && head.Length > 0 && body.Length > 0 )
+			return Finish( $"{head}, you can {OracleText.Continue( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
 		var text = head == "You can" ? $"You can {OracleText.Continue( body )}"
 			: head.Length > 0 && body.Length > 0 ? $"{head}{(comma ? ", " + OracleText.Continue( body ) : ": " + AfterColon( body ))}" : head + body;
 		if ( text.Length > 0 && lasting.Length > 0 )
@@ -341,6 +349,8 @@ public static class EffectWriter
 	{
 		"OP_WhenArrives", "OP_WhenLeavesField", "OP_WhenCast", "OP_WhenSentTo", "OP_WhenDiscarded", "OP_WhenTributed", "OP_Activate", "OP_QuickCastResponse",
 	};
+
+	static bool IsAura( CardDefinition card ) => card?.Types.Any( t => t is "PositiveAura" or "NegativeAura" or "Aura" ) == true;
 
 	/// <summary>Cast, Domain and Aura cards: their Field effects need no "While this card is on the field" (Cast cards leave, Domains and Auras only work there).</summary>
 	static bool Passing( CardDefinition card ) =>

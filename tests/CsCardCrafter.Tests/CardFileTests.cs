@@ -70,6 +70,23 @@ public class CardFileTests
 		Assert.DoesNotContain( recipe.Ways, w => w[0].Text.StartsWith( "Siaenar" ) );
 	}
 
+	/// <summary>
+	/// Kitharas Was Silenced (Justin's design, 2026-11-20): an Aura's activated effect says it works from the Aura, and the
+	/// Evade Cast and "gains a keyword" blocks write the card's own words, word for word.
+	/// </summary>
+	[Fact]
+	public void KitharasWasSilencedWritesItsText()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Kitharas Was Silenced" );
+		foreach ( var effect in card.Effects.Where( e => e.Section is EffectSection.Field or EffectSection.Abyss or EffectSection.Keyword ) )
+			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( "Once per turn, while this card is in your Aura, you can Evade Cast 1 Select non-Fusion Damage type \"Kitharas\" card from your hand, then it gains Final Will.",
+			CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects.First( e => e.Section == EffectSection.Field ) ) );
+		Assert.Equal( "Once per turn, while this card is in the Abyss, you can Void this card: Evade Cast 1 target \"Kitharas\" card with a listed cost of 7 Light Mana from your Abyss, then it gains Anchored 3 Rounds.",
+			CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects.First( e => e.Section == EffectSection.Abyss ) ) );
+		Assert.Equal( "{BEG}Anchored.{END}\n{BEG}" + card.Effects[1].Text + "{END}\n{BEG}" + card.Effects[2].Text + "{END}", card.Description.Replace( "\r\n", "\n" ) );
+	}
+
 	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>
 	[Fact]
 	public void OptionsAndSharedTextPrintOnce()
