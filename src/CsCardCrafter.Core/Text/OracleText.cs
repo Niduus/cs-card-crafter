@@ -30,8 +30,8 @@ public static class OracleText
 			"OP_ApplyCrowdControl" => CrowdControl( block, op ),
 			"OP_GainMend" => Mend( block.Value( op, "Who" ), block.Value( op, "Count" ) ),
 			"OP_IfEnhanced" => block.Value( op, "Enhanced" ) == "true" ? "If Enhanced:" : "",
-			"OP_IfMastery" => $"if your mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}",
-			"OP_OnlyIfMastery" => $"If your mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}:",
+			"OP_IfMastery" => $"if your Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}",
+			"OP_OnlyIfMastery" => $"If your Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}:",
 			"OP_Activate" => "",
 			"OP_CombatPerCount" => CombatPerCount( block, op ),
 			"OP_IfHaveCard" => HaveCard( block, op ),
@@ -49,6 +49,15 @@ public static class OracleText
 			"OP_Frontline" => block.Number( op, "Value" ) > 0 ? $"Frontline {block.Value( op, "Count" )} ({block.Value( op, "Value" )} each)" : $"Frontline {block.Value( op, "Count" )}",
 			"OP_Exclusive" => "Exclusive: " + string.Join( ", ", block.Value( op, "Masteries" ).Split( '/', ',' ).Select( m => Title( Mastery( m.Trim() ).Trim() ) ).Where( m => m.Length > 0 ) ),
 			"OP_IfSpiritUses" => block.Text( op ).Replace( "Activate only if ", "if " ),
+			// Combat bonuses (card-description-revamps, 2026-11-20): "+9 per 1% HP you are missing" counts the attacker's
+			// missing HP; "(x2 if their Mastery is Life)"; X counts every player's cards; the defender's count is "they have".
+			// "Can only be Fusion Cast by its own effect or by "Kitharas Hexation"" (card-description-revamps B18).
+			"OP_FusionCastOnlyBy" => "Can only be Fusion Cast by " + (block.Value( op, "Self" ) == "true" ? "its own effect or by " : "")
+				+ string.Join( " or ", block.Value( op, "Names" ).Split( '|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).Select( n => $"\"{n}\"" ) ),
+			"OP_CombatPerMissingHealth" => $"+{block.Value( op, "Amount" )} per 1% HP you are missing",
+			"OP_DoubleCombatVsMastery" => $"(x2 if their Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()})",
+			"OP_CombatX" => $"(X = {block.Value( op, "Base" )} + {block.Value( op, "Per" )} per {Mastery( block.Value( op, "Mastery" ) )}card on every field and in every Abyss)",
+			"OP_CombatPerDefender" => $"+{block.Value( op, "Amount" )} per {block.Value( op, "Per" )} they have",
 			_ => block.Text( op ),
 		};
 		return Tidy( text );
@@ -159,11 +168,11 @@ public static class OracleText
 		return $"Give 1 ?{percent} {Mastery( block.Value( op, "Mastery" ) )}{BoonNoun( block.Value( op, "Kind" ), false )} to {Object( block.Value( op, "Who" ) )} (? = {block.Value( op, "Scale" )} per {per} paid)";
 	}
 
-	/// <summary>'discard 1 select non-"Kitharas" Crimson or Life card'.</summary>
+	/// <summary>'discard 1 Select non-"Kitharas" Crimson or Life card'.</summary>
 	static string DiscardMatching( Block block, OperationBlock op )
 	{
 		var except = block.Value( op, "Except" ) is { Length: > 0 } e ? $"non-\"{e}\" " : "";
-		return $"discard {block.Value( op, "Amount" )} select {except}{Masteries( block.Value( op, "Mastery" ) )}card";
+		return $"discard {block.Value( op, "Amount" )} Select {except}{Masteries( block.Value( op, "Mastery" ) )}card";
 	}
 
 	/// <summary>'Damage type "Kitharas" cards you control of your Mastery gain Anchored 3'.</summary>
@@ -208,7 +217,44 @@ public static class OracleText
 		var size = string.IsNullOrEmpty( amount ) ? "" : (damp && !amount.StartsWith( '-' ) ? "-" : "") + amount + (string.IsNullOrEmpty( percent ) ? "" : "%") + " ";
 		var mastery = Mastery( block.Value( op, "Mastery" ) );
 		var what = $"{count} {size}{mastery}{noun}";
-		return Gains( who ) ? $"{Subject( who )} {Verb( who, "gain" )} {what}" : $"Give {what} to {Object( who )}";
+		var text = Gains( who ) ? $"{Subject( who )} {Verb( who, "gain" )} {what}" : $"Give {what} to {Object( who )}";
+		// "If you have 50% HP or less, you gain one 500 Crimson damage Blade" (the block checks its caster's HP).
+		return block.Value( op, "IfHealthAtMost" ) is { Length: > 0 } atMost ? $"If you have {atMost}% HP or less, {text}" : text;
+	}
+
+	/// <summary>
+	/// What a Boon or Overtime block gives, without who gets it: "one -400 damage Mantle", "two 400 Fire Damage Overtime
+	/// (4 rounds)". The Combat line lists these together for one player ("550 Ice damage and one -400 damage Mantle to
+	/// target enemy"). Empty for other blocks and for boons that only come under a condition.
+	/// </summary>
+	public static string Item( OperationBlock op )
+	{
+		var block = BlockRegistry.Get( op?.Op );
+		if ( block is null )
+			return "";
+		if ( op.Op == "OP_GiveBoon" && block.Value( op, "IfHealthAtMost" ).Length == 0 )
+		{
+			var kind = block.Value( op, "Kind" );
+			var count = block.Value( op, "Count" );
+			var amount = block.Value( op, "Amount" );
+			var size = string.IsNullOrEmpty( amount ) ? "" : (kind.EndsWith( "Mantle" ) && !amount.StartsWith( '-' ) ? "-" : "") + amount + (block.Value( op, "Percent" ).Length > 0 ? "%" : "") + " ";
+			return Tidy( $"{count} {size}{Mastery( block.Value( op, "Mastery" ) )}{BoonNoun( kind, count != "1" )}" );
+		}
+		if ( op.Op == "OP_GiveOverTime" )
+			return Tidy( OverTimeWhat( block, op ) );
+		return "";
+	}
+
+	/// <summary>Who a Boon or Overtime block gives to ("target enemy", "you"), or empty for other blocks.</summary>
+	public static string ItemWho( OperationBlock op ) =>
+		op?.Op is "OP_GiveBoon" or "OP_GiveOverTime" && BlockRegistry.Get( op.Op ) is { } block ? block.Value( op, "Who" ) : "";
+
+	/// <summary>"Stun them for 1 round": a crowd control on the player the sentence already names.</summary>
+	public static string CrowdControlOn( OperationBlock op, string whom )
+	{
+		var block = BlockRegistry.Get( op.Op );
+		var rounds = Math.Max( 1, block.Number( op, "Rounds" ) );
+		return $"{CrowdControlVerb( block, op )} {whom} for {rounds} {(rounds == 1 ? "round" : "rounds")}";
 	}
 
 	/// <summary>A boon kind as printed: Mantles are Damps and name their kind ("damage mantle"), Blades name theirs unless plain damage.</summary>
@@ -217,9 +263,9 @@ public static class OracleText
 		var noun = kind switch
 		{
 			"Blade" => "damage Blade",
-			"Mantle" => many ? "damage Mantle" : "damage mantle",
-			"HealingMantle" => many ? "healing Mantle" : "healing mantle",
-			"LifestealMantle" => many ? "lifesteal Mantle" : "lifesteal mantle",
+			"Mantle" => "damage Mantle",
+			"HealingMantle" => "healing Mantle",
+			"LifestealMantle" => "lifesteal Mantle",
 			"HealingBlade" => "Healing Blade",
 			"LifestealBlade" => "Lifesteal Blade",
 			_ => kind,
@@ -227,11 +273,11 @@ public static class OracleText
 		return many ? noun + "s" : noun;
 	}
 
-	/// <summary>"you gain Mend", "Allies gain Mend", "Give 2 Mends to target ally".</summary>
+	/// <summary>"you gain 1 Mend", "allies gain 1 Mend", "Give 2 Mends to target ally".</summary>
 	static string Mend( string who, string count )
 	{
-		var what = count == "1" || string.IsNullOrEmpty( count ) ? "Mend" : $"{count} Mends";
-		return Gains( who ) ? $"{Subject( who )} {Verb( who, "gain" )} {what}" : $"Give {(what == "Mend" ? "1 Mend" : what)} to {Object( who )}";
+		var what = count == "1" || string.IsNullOrEmpty( count ) ? "1 Mend" : $"{count} Mends";
+		return Gains( who ) ? $"{Subject( who )} {Verb( who, "gain" )} {what}" : $"Give {what} to {Object( who )}";
 	}
 
 	/// <summary>"you gain 1 200 Heal Overtime for 3 rounds" (Heal Overtime never has a Mastery), "give 2 400 Fire Damage Overtime to target enemy for 3 rounds".</summary>
@@ -239,11 +285,21 @@ public static class OracleText
 	{
 		var who = block.Value( op, "Who" );
 		var heal = block.Value( op, "Heal" ) == "true";
+		var what = OverTimeWhat( block, op );
+		return heal && Gains( who ) ? $"{Subject( who )} {Verb( who, "gain" )} {what}" : $"Give {what} to {Object( who )}";
+	}
+
+	/// <summary>"one 90 Spectre Damage Overtime (4 rounds, +90 each round)"; "(X = 25 per Light Mana they have)" when it grows with the defender's Light Mana.</summary>
+	static string OverTimeWhat( Block block, OperationBlock op )
+	{
+		var heal = block.Value( op, "Heal" ) == "true";
 		var rounds = block.Number( op, "Rounds" );
 		var increase = block.Number( op, "Increase" );
-		var what = $"{block.Value( op, "Count" )} {block.Value( op, "Amount" )} {(heal ? "" : Mastery( block.Value( op, "Mastery" ) ))}{(heal ? "Heal" : "Damage")} Overtime";
-		var time = $"for {rounds} {(rounds == 1 ? "round" : "rounds")}" + (increase != 0 ? $", increasing by {increase} each round" : "");
-		return heal && Gains( who ) ? $"{Subject( who )} {Verb( who, "gain" )} {what} {time}" : $"Give {what} to {Object( who )} {time}";
+		var per = block.Number( op, "PerDefenderLight" );
+		var amount = per != 0 ? "X" : block.Value( op, "Amount" );
+		var time = $"({rounds} {(rounds == 1 ? "round" : "rounds")}" + (increase != 0 ? $", +{increase} each round" : "") + ")";
+		var x = per != 0 ? $" (X = {(block.Number( op, "Amount" ) != 0 ? block.Value( op, "Amount" ) + " + " : "")}{per} per Light Mana they have)" : "";
+		return $"{block.Value( op, "Count" )} {amount} {(heal ? "" : Mastery( block.Value( op, "Mastery" ) ))}{(heal ? "Heal" : "Damage")} Overtime {time}{x}";
 	}
 
 	static string Draw( Block block, OperationBlock op )
@@ -256,11 +312,13 @@ public static class OracleText
 
 	static string CrowdControl( Block block, OperationBlock op )
 	{
-		// As the cards word it: "Stun target enemy" (one round goes unsaid), "Confuse target enemy for 2 rounds".
+		// Every crowd control says how long it lasts, one round too (card-description-revamps A2): "Stun target enemy for 1 round".
 		var rounds = Math.Max( 1, block.Number( op, "Rounds" ) );
-		var verb = block.Value( op, "Kind" ) switch { "Marked" => "Mark", "Confusion" => "Confuse", var kind => kind };
-		return $"{verb} {Object( block.Value( op, "Who" ) )}" + (rounds == 1 ? "" : $" for {rounds} rounds");
+		return $"{CrowdControlVerb( block, op )} {Object( block.Value( op, "Who" ) )} for {rounds} {(rounds == 1 ? "round" : "rounds")}";
 	}
+
+	static string CrowdControlVerb( Block block, OperationBlock op ) =>
+		block.Value( op, "Kind" ) switch { "Marked" => "Mark", "Confusion" => "Confuse", var kind => kind };
 
 	/// <summary>Whether a grant to <paramref name="who"/> reads "X gain..." (self and all-player grants) rather than "Give ... to X".</summary>
 	static bool Gains( string who ) => who is Who.You or Who.Allies or Who.Everyone;
@@ -268,7 +326,7 @@ public static class OracleText
 	static string Subject( string who ) => who switch
 	{
 		Who.You or "" or null => "you",
-		Who.Allies => "Allies",
+		Who.Allies => "allies",
 		_ => who,
 	};
 
@@ -306,7 +364,7 @@ public static class OracleText
 		text = Regex.Replace( text, @" on you(?=[.,;:)]|$)", " on yourself" );
 		text = text.Replace( "gains Any Mana", "gains Mana" );
 		// A count straight before a value is a word: "Gain three 300 Blades", "give one 400 Trap" (Justin, 2026-11-19).
-		text = Regex.Replace( text, @"(?<![\d.%] |\d)\b([1-9]|1[0-2]) (?=[-?]?\d|\?)", m => Words[int.Parse( m.Groups[1].Value )] + " " );
+		text = Regex.Replace( text, @"(?<![\d.%] |\d)\b([1-9]|1[0-2]) (?=[-?]?\d|\?|X\b)", m => Words[int.Parse( m.Groups[1].Value )] + " " );
 		text = Regex.Replace( text, @"\s{2,}", " " ).Trim();
 		// Plural across a card's describing words: 'Select and Draw 2 "Kitharas" cards'.
 		text = Regex.Replace( text, @"(?<![\d] )\b(\d*[02-9]|\d{2,}|two|three|four|five|six|seven|eight|nine|ten) ((?:(?!(?:per|of|in|from|with|on|to|and|or)\b)[\w""-]+ ){1,3})card\b(?!s)", "$1 $2cards" );
