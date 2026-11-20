@@ -590,7 +590,8 @@ public sealed partial class MainViewModel : ObservableObject
 	/// </summary>
 	public static KeywordOption[] AllKeywords { get; } = CardKeywords.Glossary
 		.Where( k => !k.Value.Contains( "Mend protects from Crowd Control", StringComparison.Ordinal )
-			&& k.Key is not ("Crowd Control" or "Healing" or "Overhealing" or "Detonate") )
+			// Exclusive Fusion Cast labels an effect: it is the Exclusive option on the "Fusion Cast this card" block.
+			&& k.Key is not ("Crowd Control" or "Healing" or "Overhealing" or "Detonate" or "Exclusive Fusion Cast") )
 		.Select( k => new KeywordOption( k.Key, k.Value ) )
 		.OrderBy( k => k.Name, StringComparer.OrdinalIgnoreCase )
 		.ToArray();

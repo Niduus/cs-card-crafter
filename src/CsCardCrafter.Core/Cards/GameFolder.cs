@@ -94,7 +94,11 @@ public sealed class GameFolder
 				broken?.Add( file );
 			}
 		}
-		return CardOrder.Sort( cards, c => c.Card ).ToList();
+		var sorted = CardOrder.Sort( cards, c => c.Card ).ToList();
+		// "Fusion Cast 1 non-Exclusive Fusion Cast card" (Siaenar) shows a recipe per Fusion card it may cast.
+		var pool = sorted.Select( c => c.Card ).Where( c => c.IsPlayable ).ToList();
+		ChaosSpells.Rules.FusionRecipe.HostPool = () => pool;
+		return sorted;
 	}
 
 	/// <summary>
