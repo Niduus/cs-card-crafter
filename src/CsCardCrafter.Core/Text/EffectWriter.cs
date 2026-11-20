@@ -8,8 +8,8 @@ namespace CsCardCrafter.Core.Text;
 /// Writes an effect's card text from its blocks, the way YGO Card Crafter suggests text, but in Chaos Spells wording
 /// (oracle.md and the game's existing cards):
 /// <list type="bullet">
-/// <item>Combat: "Combat: 650 Storm damage to target enemy, Then you gain 2 250 damage Blades, Also ..." in one sentence,
-/// Then / Also / Finally in that order.</item>
+/// <item>Combat: "Combat: 550 Ice damage and one -400 damage Mantle to target enemy; you gain one 1050 Shield." in one
+/// sentence: what the target gets in one list, the rest after a semicolon or ", then".</item>
 /// <item>Keyword: the ALWAYS blocks as keyword lines ("Lifesteal: 10%.").</item>
 /// <item>Others: "[WHEN], [IF]: [COST]: [THEN]." ("When this card is sent to the Abyss, if your mastery is Death: you
 /// draw 2."), with "You may" / "While this card is in the Abyss, you can" for effects you activate.</item>
@@ -17,7 +17,7 @@ namespace CsCardCrafter.Core.Text;
 /// </summary>
 public static class EffectWriter
 {
-	static readonly string[] Connectors = { "Then", "Also", "Finally" };
+	static readonly string[] Connectors = { "then", "also", "finally" };
 
 	public static string Write( CardDefinition card, CardEffect effect )
 	{
@@ -29,14 +29,43 @@ public static class EffectWriter
 			EffectSection.Keyword => KeywordList( effect.Always ),
 			_ when IsInnate( effect ) => Innate( effect ),
 			_ when IsLasting( effect ) => Lasting( card, effect ),
-			_ => Activated( card, effect ),
+			_ => Limited( effect, Activated( card, effect ) ),
 		};
 	}
 
+	/// <summary>"Once per turn", "Once per round", "Once per Conflict", or empty for an effect with no once-per limit.</summary>
+	public static string Limit( CardEffect effect ) => effect.Usage switch
+	{
+		EffectUsage.OncePerTurn => "Once per turn",
+		EffectUsage.OncePerRound => "Once per round",
+		EffectUsage.OncePerConflict => "Once per Conflict",
+		_ => "",
+	};
+
 	/// <summary>
-	/// The card's Combat line: its Combat value and target from the Card tab, then the THEN blocks. ALWAYS combat blocks
+	/// The once-per limit printed where it applies (card-description-revamps, 2026-11-20): "Once per turn, you can discard
+	/// this card: ...", "Once per Conflict, when ...", "Once per turn: Select and Draw 1 ...". A limit shared by name
+	/// (one "Spawn" card per round) stays its own line.
+	/// </summary>
+	static string Limited( CardEffect effect, string text )
+	{
+		var limit = Limit( effect );
+		if ( limit.Length == 0 || text.Length == 0 || effect.UsageScope == EffectUsageScope.SameName || effect.Section == EffectSection.ImportantTag
+			|| text.Contains( "once per", StringComparison.OrdinalIgnoreCase ) )
+			return text;
+		var first = text.Split( ' ', 2 )[0];
+		return first is "When" or "Whenever" or "While" or "During" or "If" or "You" or "At" or "In"
+			? $"{limit}, {char.ToLowerInvariant( text[0] )}{text[1..]}"
+			: $"{limit}: {text}";
+	}
+
+	/// <summary>
+	/// The card's Combat line (card-description-revamps A1, 2026-11-20): its Combat value and target from the Card tab,
+	/// then the THEN blocks. Everything the Combat's target also gets joins one list ("Combat: 550 Ice damage and one -400
+	/// damage Mantle to target enemy"), a crowd control on them follows ("and Stun them for 1 round"), and the rest comes
+	/// after a semicolon (or ", then" when nothing joined the list): "; you gain one 1050 Shield". ALWAYS combat blocks
 	/// shape it: a Combat Mastery or True Damage replaces the damage word ("0 True Damage to target enemy"), "+N per ..."
-	/// bonuses share one bracket ("(+100 per "Knight" card ..., Also +800 per ...)"), and an "(X = ...)" note ends the line.
+	/// bonuses share one bracket ("(+100 per "Knight" card ... and +800 per ...)"), and an "(X = ...)" note ends the line.
 	/// </summary>
 	static string Combat( CardDefinition card, CardEffect effect )
 	{
@@ -44,7 +73,8 @@ public static class EffectWriter
 		var damage = mastery + "damage";
 		var bonuses = new List<string>();
 		var inline = "";
-		var note = "";
+		var notes = new List<string>();
+		var combatNotes = new List<string>();
 		foreach ( var op in effect.Always )
 		{
 			var bonus = OracleText.Of( op );
@@ -59,24 +89,112 @@ public static class EffectWriter
 			else if ( bonus.StartsWith( '+' ) )
 				bonuses.Add( bonus );
 			else if ( bonus.StartsWith( "(X =", StringComparison.Ordinal ) )
-				note = bonus;
+				combatNotes.Add( bonus.TrimEnd( '.' ) );
 			else
 				inline += bonus.StartsWith( '(' ) ? " " + bonus : ", " + bonus;
 		}
-		var target = card?.CombatTarget switch
+		var who = card?.CombatTarget switch
 		{
-			ChaosSpells.Cards.CombatTarget.Self => "yourself",
-			ChaosSpells.Cards.CombatTarget.Enemies => "all enemies",
-			ChaosSpells.Cards.CombatTarget.Ally => "target ally",
-			ChaosSpells.Cards.CombatTarget.Friends => "Allies",
-			_ => "target enemy",
+			ChaosSpells.Cards.CombatTarget.Self => Who.You,
+			ChaosSpells.Cards.CombatTarget.Enemies => Who.AllEnemies,
+			ChaosSpells.Cards.CombatTarget.Ally => Who.TargetAlly,
+			ChaosSpells.Cards.CombatTarget.Friends => Who.Allies,
+			_ => Who.TargetEnemy,
 		};
+		var target = who == Who.You ? "yourself" : who;
 		var value = string.IsNullOrWhiteSpace( card?.Combat ) ? "X" : card.Combat.Trim();
-		var text = $"Combat: {value} {damage} to {target}";
-		if ( bonuses.Count > 0 )
-			text += " (" + string.Join( ", Also ", bonuses ) + ")";
-		text = Finish( text + inline + Chain( effect.Then ) );
-		return note.Length > 0 ? text + " " + note : text;
+
+		// What the Combat's own target also gets, and crowd control on them.
+		var list = new List<string> { $"{value} {damage}" };
+		var controls = new List<string>();
+		var rest = new List<OperationBlock>();
+		foreach ( var op in effect.Then )
+		{
+			if ( who != Who.You && OracleText.ItemWho( op ) == who && OracleText.Item( op ) is { Length: > 0 } item )
+				list.Add( item );
+			else if ( who != Who.You && op.Op == "OP_ApplyCrowdControl" && BlockRegistry.Get( op.Op )?.Value( op, "Who" ) == who )
+				controls.Add( OracleText.CrowdControlOn( op, "them" ) );
+			else
+				rest.Add( op );
+		}
+		// An Overtime that grows with the defender's mana names its X at the end: "(X = 25 per Light Mana they have)".
+		for ( var i = 1; i < list.Count; i++ )
+		{
+			var x = Regex.Match( list[i], @" (\(X = [^)]*\))$" );
+			if ( !x.Success )
+				continue;
+			notes.Add( x.Groups[1].Value );
+			list[i] = list[i][..x.Index];
+		}
+		// Bonuses and the X note sit on the damage: after it when other things join the list ("800 Fire damage (x2 if
+		// their Mastery is Fire) and one 350 Trap to target enemy"), else after the target.
+		var shape = (bonuses.Count > 0 ? " (" + string.Join( " and ", bonuses ) + ")" : "") + inline;
+		foreach ( var x in combatNotes )
+			shape += " " + x;
+		if ( list.Count > 1 )
+			list[0] += shape;
+		var text = $"Combat: {Series( list )} to {target}";
+		if ( list.Count == 1 )
+			text += shape;
+		// "and Stun them for 1 round" ("..., and Stun them" when the list already has an "and").
+		foreach ( var control in controls )
+			text += (list.Count > 1 ? ", and " : " and ") + control;
+		var then = Rest( rest );
+		if ( then.Length > 0 )
+			text += then.StartsWith( ". " ) ? then : (list.Count > 1 || controls.Count > 0 ? "; " : ", then ") + then;
+		text = Finish( text );
+		return notes.Count > 0 ? Finish( text.TrimEnd( '.' ) + " " + string.Join( " ", notes ) ) : text;
+	}
+
+	/// <summary>"a", "a and b", "a, b and c".</summary>
+	static string Series( IReadOnlyList<string> parts ) =>
+		parts.Count == 1 ? parts[0] : string.Join( ", ", parts.Take( parts.Count - 1 ) ) + " and " + parts[^1];
+
+	/// <summary>
+	/// The Combat's other THEN blocks, joined with ", then": boons for one player share one list ("you gain one 400 Shield
+	/// and one 300 damage Blade", "give one -560 damage Mantle and one 560 Trap to all enemies"). A gate ("If your Mastery
+	/// is Fire or Life:"), a boon under an HP condition or a block that opens its own sentence starts a new sentence
+	/// (the result then starts with ". ").
+	/// </summary>
+	static string Rest( List<OperationBlock> blocks )
+	{
+		var parts = new List<(string Text, bool Own)>();
+		for ( var i = 0; i < blocks.Count; i++ )
+		{
+			var op = blocks[i];
+			var who = OracleText.ItemWho( op );
+			var item = OracleText.Item( op );
+			var plain = OracleText.Of( op );
+			if ( who.Length > 0 && item.Length > 0 && !(op.Op == "OP_GiveOverTime" && plain.StartsWith( "Give" ) && who is Who.You or Who.Allies) )
+			{
+				var items = new List<string> { item };
+				while ( i + 1 < blocks.Count && OracleText.ItemWho( blocks[i + 1] ) == who && OracleText.Item( blocks[i + 1] ) is { Length: > 0 } next )
+				{
+					items.Add( next );
+					i++;
+				}
+				var gains = who is Who.You or Who.Allies or Who.Everyone;
+				var verb = who is Who.Everyone ? "gains" : "gain";
+				parts.Add( (gains ? $"{(who == Who.You ? "you" : who)} {verb} {Series( items )}" : $"give {Series( items )} to {who}", false) );
+				continue;
+			}
+			if ( plain.Length == 0 )
+				continue;
+			var own = plain.EndsWith( ':' ) || plain.StartsWith( "If ", StringComparison.Ordinal ) || plain.StartsWith( "Then, ", StringComparison.Ordinal );
+			parts.Add( (plain, own) );
+		}
+		var text = "";
+		for ( var i = 0; i < parts.Count; i++ )
+		{
+			var (part, own) = parts[i];
+			if ( own )
+				text += ". " + OracleText.Capitalize( part );
+			else if ( i > 0 && parts[i - 1].Text.EndsWith( ':' ) )
+				text += " " + AfterColon( part );
+			else
+				text += (i == 0 ? "" : ", then ") + OracleText.Continue( part );
+		}
+		return text;
 	}
 
 	/// <summary>
@@ -232,10 +350,11 @@ public static class EffectWriter
 	static string LowerWhen( string lead ) =>
 		Regex.IsMatch( lead, "^(When|Whenever|If|During) " ) ? char.ToLowerInvariant( lead[0] ) + lead[1..] : lead;
 
-	/// <summary>What follows a colon starts with a capital ("...: Deal 400 Death damage"), except "you" ("...: you draw 2").</summary>
+	/// <summary>What follows a colon starts with a capital ("...: Deal 400 Death damage"), except "you" and "allies" ("...: you draw 2").</summary>
 	public static string AfterColon( string text ) =>
 		text.StartsWith( "you ", StringComparison.Ordinal ) || text.StartsWith( "You ", StringComparison.Ordinal ) && !text.StartsWith( "You may", StringComparison.Ordinal )
-			? "you " + text[4..] : OracleText.Capitalize( text );
+			? "you " + text[4..]
+			: text.StartsWith( "allies ", StringComparison.Ordinal ) ? text : OracleText.Capitalize( text );
 
 	/// <summary>The card a WHEN block is about, as a card blank names it ("this card"), or empty when it names another.</summary>
 	static string TriggerSubject( OperationBlock when )
@@ -267,7 +386,7 @@ public static class EffectWriter
 			var before = Chain( parts.Take( gate ), first );
 			var after = Chain( parts.Skip( gate + 1 ), true ).TrimStart( ',', ' ' );
 			var sentence = $"{OracleText.Capitalize( parts[gate] )} {AfterColon( after )}".Trim();
-			return before.Length == 0 ? (first ? sentence : ", Then " + sentence) : Finish( before ) + " " + sentence;
+			return before.Length == 0 ? (first ? sentence : ". " + sentence) : Finish( before ) + " " + sentence;
 		}
 		// A block that opens its own sentence ("Then, if you do not control another "Kitharas" card, Void this card")
 		// ends the one before it rather than stacking a second "Then".
@@ -318,8 +437,10 @@ public static class EffectWriter
 	{
 		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && !IsInnate( e ) ) )
 			return "";
+		// Effects whose text already prints their limit ("Once per turn, ...") need no line for it.
 		var limited = card.Effects
 			.Where( e => e.Usage is EffectUsage.OncePerTurn or EffectUsage.OncePerRound or EffectUsage.OncePerConflict )
+			.Where( e => !(string.IsNullOrWhiteSpace( e.Text ) ? (e.HasOperations ? Write( card, e ) : "") : e.Text).Contains( "once per", StringComparison.OrdinalIgnoreCase ) )
 			.Select( e => $"{(e.Section == EffectSection.Hand ? "Hand" : e.Section.ToString())} effect once per {e.Usage switch { EffectUsage.OncePerTurn => "turn", EffectUsage.OncePerRound => "round", _ => "Conflict" }}" )
 			.Distinct()
 			.ToList();

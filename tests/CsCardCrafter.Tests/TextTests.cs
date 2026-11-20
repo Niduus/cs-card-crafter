@@ -15,7 +15,7 @@ public class TextTests
 		new() { Name = "Test", Mastery = mastery, Combat = combat, Types = { "Damage" } };
 
 	[Fact]
-	public void CombatLineWithThenAlso()
+	public void CombatLineListsWhatTheTargetGets()
 	{
 		var effect = new CardEffect
 		{
@@ -26,16 +26,16 @@ public class TextTests
 				Op( "OP_GiveBoon", ("Kind", "Mantle"), ("Count", "1"), ("Amount", "100"), ("Who", "target enemy") ),
 			},
 		};
-		Assert.Equal( "Combat: 150 Ice damage to target enemy, Then you gain one 400 Shield, Also give one -100 damage mantle to target enemy.",
+		Assert.Equal( "Combat: 150 Ice damage and one -100 damage Mantle to target enemy; you gain one 400 Shield.",
 			EffectWriter.Write( Card(), effect ) );
 	}
 
 	[Fact]
 	public void BoonsCountMagnitudeKindWho()
 	{
-		Assert.Equal( "Allies gain three 350 Shields", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Shield"), ("Count", "3"), ("Amount", "350"), ("Who", "allies") ) ) );
+		Assert.Equal( "allies gain three 350 Shields", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Shield"), ("Count", "3"), ("Amount", "350"), ("Who", "allies") ) ) );
 		Assert.Equal( "you gain two 250 damage Blades", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Blade"), ("Count", "2"), ("Amount", "250"), ("Who", "you") ) ) );
-		Assert.Equal( "Give one -15% lifesteal mantle to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "LifestealMantle"), ("Count", "1"), ("Amount", "15"), ("Percent", "%"), ("Who", "target enemy") ) ) );
+		Assert.Equal( "Give one -15% lifesteal Mantle to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "LifestealMantle"), ("Count", "1"), ("Amount", "15"), ("Percent", "%"), ("Who", "target enemy") ) ) );
 		Assert.Equal( "Give two 400 Traps to target enemy", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Trap"), ("Count", "2"), ("Amount", "400"), ("Who", "target enemy") ) ) );
 	}
 
@@ -56,7 +56,7 @@ public class TextTests
 			If = { Op( "OP_IfMastery", ("Mastery", "Death") ) },
 			Then = { Op( "OP_Draw", ("Amount", "2"), ("Who", "you") ) },
 		};
-		Assert.Equal( "When this card is sent to the Abyss, if your mastery is Death: you draw 2.", EffectWriter.Write( Card(), effect ) );
+		Assert.Equal( "When this card is sent to the Abyss, if your Mastery is Death: you draw 2.", EffectWriter.Write( Card(), effect ) );
 	}
 
 	[Fact]
@@ -139,7 +139,7 @@ public class TextTests
 		Assert.Equal( "you gain three 300 damage Blades", OracleText.Of( Op( "OP_GiveBoon", ("Kind", "Blade"), ("Count", "3"), ("Amount", "300"), ("Who", "you") ) ) );
 		Assert.Equal( "Select and Draw 2 \"Kitharas\" cards of different Card Types from your Deck",
 			OracleText.Of( Op( "OP_SelectAndDraw", ("Amount", "2"), ("Name", "Kitharas"), ("Pile", "Deck or Side Deck"), ("Distinct", "true") ) ) );
-		Assert.Equal( "discard 1 select non-\"Kitharas\" Crimson or Life card", OracleText.Of( Op( "OP_CostDiscardMatching", ("Amount", "1"), ("Mastery", "Crimson/Life"), ("Except", "Kitharas") ) ) );
+		Assert.Equal( "discard 1 Select non-\"Kitharas\" Crimson or Life card", OracleText.Of( Op( "OP_CostDiscardMatching", ("Amount", "1"), ("Mastery", "Crimson/Life"), ("Except", "Kitharas") ) ) );
 		Assert.Equal( "plus 3 Crimson damage per 1% missing HP", OracleText.Tidy( "plus 3 Crimson damage per 1% missing Health" ) );
 		// The True Form lock: your cards only, revealed Locations named, the field always in.
 		Assert.Equal( "all non-\"Kitharas\" cards you control cannot activate their effects, including from the Hand, Abyss and/or Void",
@@ -156,8 +156,8 @@ public class InnateConditionTests
 		card.Effects.Add( new CardEffect { Section = EffectSection.Field, Then = { BlockRegistry.Get( "OP_Draw" ).Make( ("Amount", "1"), ("Who", "you") ) } } );
 		card.Effects.Add( new CardEffect { Section = EffectSection.ImportantTag, If = { BlockRegistry.Get( "OP_IfMastery" ).Make( ("Mastery", "Life") ) } } );
 		Assert.True( EffectWriter.IsInnate( card.Effects[1] ) );
-		Assert.Equal( "Activate only if your mastery is Life.", EffectWriter.Write( card, card.Effects[1] ) );
-		Assert.StartsWith( "{BEG}Activate only if your mastery is Life.{END}{BEG}You draw 1.{END}", CardWriter.Description( card, keepTyped: false ) );
+		Assert.Equal( "Activate only if your Mastery is Life.", EffectWriter.Write( card, card.Effects[1] ) );
+		Assert.StartsWith( "{BEG}Activate only if your Mastery is Life.{END}{BEG}You draw 1.{END}", CardWriter.Description( card, keepTyped: false ) );
 	}
 }
 
@@ -233,5 +233,56 @@ public class TributedEvadeTests
 		var card = new CardDefinition { Name = "Test", Mastery = "Fire" };
 		var e = new CardEffect { Section = EffectSection.Persistent, When = { new OperationBlock { Op = "OP_WhenTributed" } }, Then = { new OperationBlock { Op = "OP_EvadeCastSelf" } } };
 		Assert.Equal( "If this card is tributed, Evade Cast this card.", EffectWriter.Write( card, e ) );
+	}
+}
+
+/// <summary>The revamped wording (card-description-revamps, 2026-11-20).</summary>
+public class RevampWordingTests
+{
+	static OperationBlock Op( string id, params (string, string)[] values ) => BlockRegistry.Get( id ).Make( values );
+
+	[Fact]
+	public void CombatListsWhatTheTargetGetsAndTimesCrowdControl()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Spectre", Combat = "160" };
+		var effect = new CardEffect
+		{
+			Section = EffectSection.Combat,
+			Then =
+			{
+				Op( "OP_GiveOverTime", ("Heal", "false"), ("Count", "1"), ("Amount", "90"), ("Mastery", "Spectre"), ("Rounds", "4"), ("Increase", "90"), ("Who", "target enemy") ),
+				Op( "OP_ApplyCrowdControl", ("Kind", "Stun"), ("Who", "target enemy"), ("Rounds", "1") ),
+			},
+		};
+		Assert.Equal( "Combat: 160 Spectre damage and one 90 Spectre Damage Overtime (4 rounds, +90 each round) to target enemy, and Stun them for 1 round.",
+			EffectWriter.Write( card, effect ) );
+	}
+
+	[Fact]
+	public void MissingHpBonusAndHpCondition()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Crimson", Combat = "1020" };
+		var effect = new CardEffect
+		{
+			Section = EffectSection.Combat,
+			Then = { Op( "OP_GiveBoon", ("Kind", "Blade"), ("Count", "1"), ("Amount", "500"), ("Mastery", "Crimson"), ("Who", "you"), ("IfHealthAtMost", "50") ) },
+			Always = { Op( "OP_CombatPerMissingHealth", ("Amount", "9") ) },
+		};
+		Assert.Equal( "Combat: 1020 Crimson damage to target enemy (+9 per 1% HP you are missing). If you have 50% HP or less, you gain one 500 Crimson damage Blade.",
+			EffectWriter.Write( card, effect ) );
+	}
+
+	[Fact]
+	public void OncePerLimitPrintsInline()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Ice" };
+		var effect = new CardEffect
+		{
+			Section = EffectSection.Hand, Usage = EffectUsage.OncePerTurn,
+			When = { Op( "OP_Activate" ) }, Cost = { Op( "OP_DiscardSelf" ) }, Then = { Op( "OP_Draw", ("Amount", "1"), ("Who", "you") ) },
+		};
+		card.Effects.Add( effect );
+		Assert.StartsWith( "Once per turn, ", EffectWriter.Write( card, effect ) );
+		Assert.Equal( "", EffectWriter.UsageLine( card ) );
 	}
 }

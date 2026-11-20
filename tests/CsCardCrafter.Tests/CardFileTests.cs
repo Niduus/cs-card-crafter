@@ -77,7 +77,7 @@ public class CardFileTests
 		var cards = Game.LoadCards().Select( c => c.Card ).ToList();
 		var headstart = cards.First( c => c.Name == "Headstart" );
 		var text = CsCardCrafter.Core.Text.CardWriter.Description( headstart );
-		Assert.Equal( 1, System.Text.RegularExpressions.Regex.Matches( text, "Draw one card" ).Count );
+		Assert.Equal( 1, System.Text.RegularExpressions.Regex.Matches( text, "draw 1 card now" ).Count );
 		var paired = cards.First( c => c.Effects.GroupBy( e => e.Text ).Any( g => g.Count() == 2 && g.Key.Length > 0 ) );
 		var shared = paired.Effects.GroupBy( e => e.Text ).First( g => g.Count() == 2 && g.Key.Length > 0 ).Key.Trim();
 		Assert.Equal( 1, System.Text.RegularExpressions.Regex.Matches( CsCardCrafter.Core.Text.CardWriter.Description( paired ), System.Text.RegularExpressions.Regex.Escape( shared ) ).Count );
