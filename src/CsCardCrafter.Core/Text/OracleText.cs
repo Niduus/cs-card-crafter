@@ -73,6 +73,7 @@ public static class OracleText
 			CombatPerCountBlock.Revealed => each + card + " revealed during its Fusion Cast",
 			CombatPerCountBlock.YourAbyss => each + card + " in your Abyss",
 			CombatPerCountBlock.EveryFieldAndAbyss => each + card + " on the field and in any Abyss",
+			CombatPerCountBlock.EveryAbyss => each + card + " in every Abyss",
 			_ => each + card + " on your field or in your Abyss",
 		};
 	}
@@ -114,7 +115,11 @@ public static class OracleText
 	/// </summary>
 	static string FusionCastSelf( Block block, OperationBlock op )
 	{
-		var from = block.Value( op, "From" ) == "Hand or Side Deck" ? "your hand or Side Deck" : "your hand";
+		// 'Exclusive Fusion Cast: Reveal this card and 2 other "Spawn" cards in your hand, Fusion Cast this card' (Siaenar).
+		if ( block.Value( op, "Exclusive" ) == "true" )
+			return block.Text( op );
+		// A card never Fusion Casts itself from the Side Deck (Justin, 2026-11-20).
+		const string from = "your hand";
 		var reveals = new List<string>();
 		if ( block.Value( op, "AllHand" ) == "true" )
 			reveals.Add( "all other cards in your hand" );

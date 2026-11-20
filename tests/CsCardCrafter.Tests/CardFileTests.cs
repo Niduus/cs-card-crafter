@@ -47,6 +47,29 @@ public class CardFileTests
 		Assert.True( problems.Count == 0, string.Join( "; ", problems.Take( 10 ) ) );
 	}
 
+	/// <summary>
+	/// Siaenar (Justin's redesign, 2026-11-20): the new blocks write the card's own words, and its field effect's recipe
+	/// lists the Fusion cards it may cast but never an Exclusive Fusion Cast one.
+	/// </summary>
+	[Fact]
+	public void SiaenarsNewBlocksWriteItsText()
+	{
+		var cards = Game.LoadCards().Select( c => c.Card ).ToList();
+		var si = cards.First( c => c.Name == "Siaenar, Protector of Spawns" );
+		var hand = si.Effects.First( e => e.Section == EffectSection.Hand );
+		var field = si.Effects.First( e => e.Section == EffectSection.Field );
+		Assert.Contains( "Exclusive Fusion Cast: Reveal this card and 2 other \"Spawn\" cards in your hand, Fusion Cast this card", CsCardCrafter.Core.Text.EffectWriter.Write( si, hand ) );
+		Assert.Contains( "other Fusion cards you Cast or Activate have their effects negated", CsCardCrafter.Core.Text.EffectWriter.Write( si, hand ) );
+		var written = CsCardCrafter.Core.Text.EffectWriter.Write( si, field );
+		Assert.Contains( "Void this card and its Attachments", written );
+		Assert.Contains( "Fusion Cast 1 non-Exclusive Fusion Cast card from your hand or Side Deck, using cards in your hand as materials", written );
+		var combat = si.Effects.First( e => e.Section == EffectSection.Combat ).Always[0];
+		Assert.Equal( "+75 per card in every Abyss", CsCardCrafter.Core.Text.OracleText.Of( combat ) );
+		var recipe = ChaosSpells.Rules.FusionRecipe.For( si, field.Then[0] );
+		Assert.Contains( recipe.Ways, w => w[0].Text.StartsWith( "Noxius-Impure" ) );
+		Assert.DoesNotContain( recipe.Ways, w => w[0].Text.StartsWith( "Siaenar" ) );
+	}
+
 	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>
 	[Fact]
 	public void OptionsAndSharedTextPrintOnce()
