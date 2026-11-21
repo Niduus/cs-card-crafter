@@ -433,24 +433,41 @@ public static class EffectWriter
 	/// The end note for once-per limits, as Justin's cards print them (2026-11-21): "You can only activate this card's
 	/// Aura and Abyss effects once per turn.", "You can only activate this card's Field effect once per turn and its
 	/// Abyss effect once per Conflict." Effects with the same limit share one list. An Aura's (or Domain's) Field effect
-	/// is named after its zone. Empty when no effect has a limit, or the card already has its own Important Tag line.
+	/// is named after its zone, and a Cast or Quick Cast card's own effect is the card itself ("You can only activate
+	/// this card once per turn and its Abyss effect once per Conflict."). Empty when no effect has a limit, or the card
+	/// already has its own Important Tag line.
 	/// </summary>
 	public static string UsageLine( CardDefinition card )
 	{
 		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && !IsInnate( e ) ) )
 			return "";
 		// Effects whose text already prints their limit ("Once per turn, ..." typed by hand) need no note for it.
-		var limited = card.Effects
+		var groups = card.Effects
 			.Where( e => e.Usage is EffectUsage.OncePerTurn or EffectUsage.OncePerRound or EffectUsage.OncePerConflict )
 			.Where( e => !(string.IsNullOrWhiteSpace( e.Text ) ? (e.HasOperations ? Write( card, e ) : "") : e.Text).Contains( "once per", StringComparison.OrdinalIgnoreCase ) )
 			.GroupBy( e => e.Usage switch { EffectUsage.OncePerTurn => "turn", EffectUsage.OncePerRound => "round", _ => "Conflict" } )
-			.Select( g => (Names: g.Select( e => SectionName( card, e ) ).Distinct().ToList(), Per: g.Key) )
+			.Select( g => (Self: g.Any( e => IsSelf( card, e ) ), Effects: g.Where( e => !IsSelf( card, e ) ).ToList(), Per: g.Key) )
+			.OrderByDescending( g => g.Self )
 			.ToList();
-		if ( limited.Count == 0 )
+		if ( groups.Count == 0 )
 			return "";
-		var parts = limited.Select( ( l, i ) => $"{(i == 0 ? "this card's" : "its")} {Series( l.Names )} {(l.Names.Count == 1 ? "effect" : "effects")} once per {l.Per}" ).ToList();
+		var parts = new List<string>();
+		foreach ( var (self, effects, per) in groups )
+		{
+			var names = effects.Select( e => SectionName( card, e ) ).Distinct().ToList();
+			var noun = effects.Count == 1 ? "effect" : "effects";
+			var owner = parts.Count == 0 && !self ? "this card's" : "its";
+			var what = self
+				? (names.Count == 0 ? "this card" : $"this card and its {Series( names )} {noun}")
+				: $"{owner} {Series( names )} {noun}";
+			parts.Add( $"{what} once per {per}" );
+		}
 		return $"You can only activate {Series( parts )}.";
 	}
+
+	/// <summary>A Cast or Quick Cast card's own effect (its Field or Hand effect): activating it is activating the card.</summary>
+	static bool IsSelf( CardDefinition card, CardEffect effect ) =>
+		card?.Types.Any( t => t is "Cast" or "QuickCast" ) == true && effect.Section is EffectSection.Field or EffectSection.Hand;
 
 	/// <summary>"Hand", "Field", "Abyss"..., with an Aura's or Domain's Field effect called after its zone ("Aura").</summary>
 	static string SectionName( CardDefinition card, CardEffect effect )
