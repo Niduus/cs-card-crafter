@@ -32,6 +32,9 @@ public static class OracleText
 			"OP_IfEnhanced" => block.Value( op, "Enhanced" ) == "true" ? "If Enhanced:" : "",
 			"OP_IfMastery" => $"if your Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}",
 			"OP_OnlyIfMastery" => $"If your Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}:",
+			// "Then, if 1 or more of them are Duo-Mastery, you can Fusion Cast ..." (Crimes Against Kitharas, 2026-11-21):
+			// a gate part way through that opens its own sentence and reads on into what it allows.
+			"OP_OnlyIfThoseCastAre" => $"Then, if 1 or more of them are {block.Value( op, "Are" )},",
 			"OP_Activate" => "",
 			"OP_CombatPerCount" => CombatPerCount( block, op ),
 			"OP_IfHaveCard" => HaveCard( block, op ),

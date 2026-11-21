@@ -89,6 +89,24 @@ public class CardFileTests
 		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
 	}
 
+	/// <summary>
+	/// Crimes Against Kitharas (Justin's design, 2026-11-21): a Quick Cast answering your non-"Kitharas" cards being
+	/// destroyed or tributed; up-to Evade Cast, the Duo-Mastery gate and the quick Fusion Cast write the agreed words.
+	/// </summary>
+	[Fact]
+	public void CrimesAgainstKitharasWritesItsText()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Crimes Against Kitharas" );
+		var effect = card.Effects.Single();
+		Assert.Equal( "When one or more of your non-\"Kitharas\" cards are destroyed or tributed by a card effect, you can reveal and discard this card: "
+			+ "Evade Cast up to 2 target non-Fusion \"Kitharas\" cards from your Abyss. Then, if 1 or more of them are Duo-Mastery, you can Fusion Cast "
+			+ "1 \"Kitharas\" card from your hand or Side Deck, using the cards Cast by this effect as materials.",
+			CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( "You can only activate this card once per turn.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
+		Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+	}
+
 	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>
 	[Fact]
 	public void OptionsAndSharedTextPrintOnce()
