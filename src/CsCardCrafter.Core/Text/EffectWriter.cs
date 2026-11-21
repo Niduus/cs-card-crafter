@@ -401,6 +401,12 @@ public static class EffectWriter
 				text = OracleText.Capitalize( parts[0] );
 				continue;
 			}
+			// A gate that reads on ("Then, if 1 or more of them are Duo-Mastery,") takes the next part without a connector.
+			if ( text.EndsWith( ',' ) )
+			{
+				text += " " + OracleText.Continue( parts[i] );
+				continue;
+			}
 			var n = first ? i - 1 : i;
 			// Then, Also, Finally; anything past three joins the last one with "and" rather than stacking connectors.
 			text += n < Connectors.Length - 1 || (n == Connectors.Length - 1 && i == parts.Count - 1)
