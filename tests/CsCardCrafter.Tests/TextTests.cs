@@ -91,6 +91,10 @@ public class TextTests
 		card.Types = new() { "PositiveAura" };
 		card.Effects[1].Usage = EffectUsage.OncePerTurn;
 		Assert.Equal( "You can only activate this card's Aura and Abyss effects once per turn.", EffectWriter.UsageLine( card ) );
+		// A Cast card's own effect is the card: "You can only activate this card once per turn and its Abyss effect once per Conflict."
+		card.Types = new() { "Cast" };
+		card.Effects[1].Usage = EffectUsage.OncePerConflict;
+		Assert.Equal( "You can only activate this card once per turn and its Abyss effect once per Conflict.", EffectWriter.UsageLine( card ) );
 	}
 
 	/// <summary>Justin 2026-11-03: nothing is written when no once-per limit applies, and "(Not once per turn)" is flagged.</summary>
