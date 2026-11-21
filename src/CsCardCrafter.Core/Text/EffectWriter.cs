@@ -43,21 +43,11 @@ public static class EffectWriter
 	};
 
 	/// <summary>
-	/// The once-per limit printed where it applies (card-description-revamps, 2026-11-20): "Once per turn, you can discard
-	/// this card: ...", "Once per Conflict, when ...", "Once per turn: Select and Draw 1 ...". A limit shared by name
+	/// Once-per limits go on the card's end note, "You can only activate this card's Aura and Abyss effects once per
+	/// turn." (Justin, 2026-11-21), not in front of each effect; see <see cref="UsageLine"/>. A limit shared by name
 	/// (one "Spawn" card per round) stays its own line.
 	/// </summary>
-	static string Limited( CardEffect effect, string text )
-	{
-		var limit = Limit( effect );
-		if ( limit.Length == 0 || text.Length == 0 || effect.UsageScope == EffectUsageScope.SameName || effect.Section == EffectSection.ImportantTag
-			|| text.Contains( "once per", StringComparison.OrdinalIgnoreCase ) )
-			return text;
-		var first = text.Split( ' ', 2 )[0];
-		return first is "When" or "Whenever" or "While" or "During" or "If" or "You" or "At" or "In"
-			? $"{limit}, {char.ToLowerInvariant( text[0] )}{text[1..]}"
-			: $"{limit}: {text}";
-	}
+	static string Limited( CardEffect effect, string text ) => text;
 
 	/// <summary>
 	/// The card's Combat line (card-description-revamps A1, 2026-11-20): its Combat value and target from the Card tab,
@@ -440,24 +430,35 @@ public static class EffectWriter
 	}
 
 	/// <summary>
-	/// The Important Tag line for once-per limits, as the game's cards print them ("You can only activate this card's
-	/// Field effect once per turn and its Abyss effect once per Conflict."). Empty when no effect has a limit.
+	/// The end note for once-per limits, as Justin's cards print them (2026-11-21): "You can only activate this card's
+	/// Aura and Abyss effects once per turn.", "You can only activate this card's Field effect once per turn and its
+	/// Abyss effect once per Conflict." Effects with the same limit share one list. An Aura's (or Domain's) Field effect
+	/// is named after its zone. Empty when no effect has a limit, or the card already has its own Important Tag line.
 	/// </summary>
 	public static string UsageLine( CardDefinition card )
 	{
 		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && !IsInnate( e ) ) )
 			return "";
-		// Effects whose text already prints their limit ("Once per turn, ...") need no line for it.
+		// Effects whose text already prints their limit ("Once per turn, ..." typed by hand) need no note for it.
 		var limited = card.Effects
 			.Where( e => e.Usage is EffectUsage.OncePerTurn or EffectUsage.OncePerRound or EffectUsage.OncePerConflict )
 			.Where( e => !(string.IsNullOrWhiteSpace( e.Text ) ? (e.HasOperations ? Write( card, e ) : "") : e.Text).Contains( "once per", StringComparison.OrdinalIgnoreCase ) )
-			.Select( e => $"{(e.Section == EffectSection.Hand ? "Hand" : e.Section.ToString())} effect once per {e.Usage switch { EffectUsage.OncePerTurn => "turn", EffectUsage.OncePerRound => "round", _ => "Conflict" }}" )
-			.Distinct()
+			.GroupBy( e => e.Usage switch { EffectUsage.OncePerTurn => "turn", EffectUsage.OncePerRound => "round", _ => "Conflict" } )
+			.Select( g => (Names: g.Select( e => SectionName( card, e ) ).Distinct().ToList(), Per: g.Key) )
 			.ToList();
 		if ( limited.Count == 0 )
 			return "";
-		var parts = limited.Select( ( l, i ) => i == 0 ? "this card's " + l : "its " + l ).ToList();
-		var list = parts.Count == 1 ? parts[0] : string.Join( ", ", parts.Take( parts.Count - 1 ) ) + " and " + parts[^1];
-		return $"You can only activate {list}.";
+		var parts = limited.Select( ( l, i ) => $"{(i == 0 ? "this card's" : "its")} {Series( l.Names )} {(l.Names.Count == 1 ? "effect" : "effects")} once per {l.Per}" ).ToList();
+		return $"You can only activate {Series( parts )}.";
+	}
+
+	/// <summary>"Hand", "Field", "Abyss"..., with an Aura's or Domain's Field effect called after its zone ("Aura").</summary>
+	static string SectionName( CardDefinition card, CardEffect effect )
+	{
+		if ( effect.Section == EffectSection.Field && IsAura( card ) )
+			return "Aura";
+		if ( effect.Section == EffectSection.Field && card?.Types.Contains( "Domain" ) == true )
+			return "Domain";
+		return effect.Section.ToString();
 	}
 }

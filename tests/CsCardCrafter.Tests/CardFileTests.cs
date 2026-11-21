@@ -80,11 +80,13 @@ public class CardFileTests
 		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Kitharas Was Silenced" );
 		foreach ( var effect in card.Effects.Where( e => e.Section is EffectSection.Field or EffectSection.Abyss or EffectSection.Keyword ) )
 			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
-		Assert.Equal( "Once per turn, while this card is in your Aura, you can Evade Cast 1 Select non-Fusion Damage type \"Kitharas\" card from your hand, then it gains Final Will.",
+		Assert.Equal( "While this card is in your Aura, you can Evade Cast 1 Select non-Fusion Damage type \"Kitharas\" card from your hand, then it gains Final Will.",
 			CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects.First( e => e.Section == EffectSection.Field ) ) );
-		Assert.Equal( "Once per turn, while this card is in the Abyss, you can Void this card: Evade Cast 1 target \"Kitharas\" card with a listed cost of 7 Light Mana from your Abyss, then it gains Anchored 3 Rounds.",
+		Assert.Equal( "While this card is in the Abyss, you can Void this card: Evade Cast 1 target \"Kitharas\" card with a listed cost of 7 Light Mana from your Abyss, then it gains Anchored 3 Rounds.",
 			CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects.First( e => e.Section == EffectSection.Abyss ) ) );
-		Assert.Equal( "{BEG}Anchored.{END}\n{BEG}" + card.Effects[1].Text + "{END}\n{BEG}" + card.Effects[2].Text + "{END}", card.Description.Replace( "\r\n", "\n" ) );
+		// The once-per limit is the end note (Justin, 2026-11-21).
+		Assert.Equal( "You can only activate this card's Aura and Abyss effects once per turn.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
 	}
 
 	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>
