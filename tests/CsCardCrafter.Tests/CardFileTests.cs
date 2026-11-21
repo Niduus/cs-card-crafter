@@ -100,7 +100,7 @@ public class CardFileTests
 		var effect = card.Effects.Single();
 		Assert.Equal( "When one or more of your non-\"Kitharas\" cards are destroyed or tributed by a card effect, you can reveal and discard this card: "
 			+ "Evade Cast up to 2 target non-Fusion \"Kitharas\" cards from your Abyss. Then, if 1 or more of them are Duo-Mastery, you can Fusion Cast "
-			+ "1 \"Kitharas\" card from your hand or Side Deck, using the cards Cast by this effect as materials.",
+			+ "1 \"Kitharas\" Fusion card from your hand or Side Deck, using the cards Cast by this effect as materials (as if by \"Kitharas Hexation\").",
 			CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
 		Assert.Equal( "You can only activate this card once per turn.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
 		Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
