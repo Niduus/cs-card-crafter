@@ -87,6 +87,10 @@ public class TextTests
 		card.Effects.Add( new CardEffect { Section = EffectSection.Field, Usage = EffectUsage.OncePerTurn } );
 		card.Effects.Add( new CardEffect { Section = EffectSection.Abyss, Usage = EffectUsage.OncePerConflict } );
 		Assert.Equal( "You can only activate this card's Field effect once per turn and its Abyss effect once per Conflict.", EffectWriter.UsageLine( card ) );
+		// Justin, 2026-11-21: effects with the same limit share one list, and an Aura's Field effect is its "Aura" effect.
+		card.Types = new() { "PositiveAura" };
+		card.Effects[1].Usage = EffectUsage.OncePerTurn;
+		Assert.Equal( "You can only activate this card's Aura and Abyss effects once per turn.", EffectWriter.UsageLine( card ) );
 	}
 
 	/// <summary>Justin 2026-11-03: nothing is written when no once-per limit applies, and "(Not once per turn)" is flagged.</summary>
@@ -128,8 +132,10 @@ public class TextTests
 		var card = game.LoadCards().First( c => c.Card.Name == "Ahziael, the True Form of Kitharas" ).Card;
 		var effects = card.Effects.Where( e => e.HasOperations && e.Section != EffectSection.Option ).ToList();
 		Assert.NotEmpty( effects );
+		// The writer puts once-per limits on the end note (Justin, 2026-11-21); the printed text may still lead with one.
+		static string NoLimit( string t ) => OracleText.Capitalize( System.Text.RegularExpressions.Regex.Replace( t, "^Once per (turn|round|Conflict)[,:] ", "" ) );
 		foreach ( var e in effects.Where( e => !string.IsNullOrEmpty( e.Text ) ) ) // the keyword line is printed from the Description only
-			Assert.Equal( e.Text, EffectWriter.Write( card, e ) );
+			Assert.Equal( NoLimit( e.Text ), EffectWriter.Write( card, e ) );
 	}
 
 	[Fact]
@@ -289,7 +295,7 @@ public class RevampWordingTests
 	}
 
 	[Fact]
-	public void OncePerLimitPrintsInline()
+	public void OncePerLimitGoesOnTheEndNote()
 	{
 		var card = new CardDefinition { Name = "Test", Mastery = "Ice" };
 		var effect = new CardEffect
@@ -298,7 +304,7 @@ public class RevampWordingTests
 			When = { Op( "OP_Activate" ) }, Cost = { Op( "OP_DiscardSelf" ) }, Then = { Op( "OP_Draw", ("Amount", "1"), ("Who", "you") ) },
 		};
 		card.Effects.Add( effect );
-		Assert.StartsWith( "Once per turn, ", EffectWriter.Write( card, effect ) );
-		Assert.Equal( "", EffectWriter.UsageLine( card ) );
+		Assert.DoesNotContain( "once per", EffectWriter.Write( card, effect ), StringComparison.OrdinalIgnoreCase );
+		Assert.Equal( "You can only activate this card's Hand effect once per turn.", EffectWriter.UsageLine( card ) );
 	}
 }
