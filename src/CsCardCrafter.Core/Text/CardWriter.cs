@@ -12,7 +12,7 @@ public static class CardWriter
 	/// <summary>Sections in the order printed cards list them.</summary>
 	static readonly EffectSection[] Order =
 	{
-		EffectSection.Keyword, EffectSection.Considered, EffectSection.FusionMaterial, EffectSection.Hand, EffectSection.Field,
+		EffectSection.Keyword, EffectSection.Considered, EffectSection.FusionMaterial, EffectSection.Hand, EffectSection.Field, EffectSection.Battlefield,
 		EffectSection.Combat, EffectSection.Attachment, EffectSection.Persistent, EffectSection.Abyss, EffectSection.Void,
 		EffectSection.ImportantTag, EffectSection.Flavor,
 	};

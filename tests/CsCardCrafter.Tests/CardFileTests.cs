@@ -90,21 +90,26 @@ public class CardFileTests
 	}
 
 	/// <summary>
-	/// Crimes Against Kitharas (Justin's design, 2026-11-21): a Quick Cast answering your non-"Kitharas" cards being
-	/// destroyed or tributed; up-to Evade Cast, the Duo-Mastery gate and the quick Fusion Cast write the agreed words.
+	/// The Kitharas combo redesign (Justin approved, 2026-11-22): every effect of the rebuilt cards writes the approved
+	/// words from its blocks, and the once-per end note names Battlefield effects.
 	/// </summary>
-	[Fact]
-	public void CrimesAgainstKitharasWritesItsText()
+	[Theory]
+	[InlineData( "Kitharas Mordiael", "You can only activate this card's Hand and Battlefield effects once per turn." )]
+	[InlineData( "Kitharas Tribute", "You can only activate this card and its Abyss effect once per turn." )]
+	[InlineData( "Kitharas Sentence", "You can only activate this card once per turn." )]
+	[InlineData( "Kitharas Hexation", "You can only activate this card once per turn." )]
+	[InlineData( "Kitharas Devourer", "You can only activate this card's Battlefield effect once per turn." )]
+	[InlineData( "Kitharas Andromeda", "You can only activate this card's Hand and Battlefield effects once per turn." )]
+	[InlineData( "Kitharas Consumer", "" )]
+	[InlineData( "Lumeria of Kitharas", "You can only activate this card's Abyss effect once per turn." )]
+	[InlineData( "Crimes Against Kitharas", "You can only activate this card once per turn." )]
+	public void KitharasRedesignWritesItsText( string name, string usage )
 	{
-		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Crimes Against Kitharas" );
-		var effect = card.Effects.Single();
-		Assert.Equal( "When one or more of your non-\"Kitharas\" cards are destroyed or tributed by a card effect, you can reveal and discard this card: "
-			+ "Evade Cast up to 2 target non-Fusion \"Kitharas\" cards from your Abyss. Then, if 1 or more of them are Duo-Mastery, you can Fusion Cast "
-			+ "1 \"Kitharas\" Fusion card from your hand or Side Deck, using the cards Cast by this effect as materials (as if by \"Kitharas Hexation\").",
-			CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
-		Assert.Equal( "You can only activate this card once per turn.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
-		Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
-		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == name );
+		// Hand, Abyss and Persistent effects keep their live wording ("You can Void this card from your Abyss: ..."), typed by hand.
+		foreach ( var effect in card.Effects.Where( e => e.HasOperations && e.Section is not (EffectSection.Keyword or EffectSection.Hand or EffectSection.Abyss or EffectSection.Persistent) ) )
+			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( usage, CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
 	}
 
 	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>

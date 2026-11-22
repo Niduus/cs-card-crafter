@@ -221,7 +221,7 @@ public static class EffectWriter
 	/// <summary>An effect made of ALWAYS blocks only: it holds while the card is where its section says.</summary>
 	static bool IsLasting( CardEffect effect ) =>
 		effect.Always.Count > 0 && effect.When.Count + effect.If.Count + effect.Cost.Count + effect.Then.Count == 0
-		&& effect.Section is EffectSection.Field or EffectSection.Abyss or EffectSection.Void;
+		&& effect.Section is EffectSection.Field or EffectSection.Battlefield or EffectSection.Abyss or EffectSection.Void;
 
 	/// <summary>
 	/// "While this card is on the field, all non-"Kitharas" cards you control cannot ...": a lasting effect says where it
@@ -235,9 +235,17 @@ public static class EffectWriter
 			return "";
 		var bare = effect.Section == EffectSection.Field && card?.Types.Any( t => t is "Domain" or "PositiveAura" or "NegativeAura" or "Aura" ) == true;
 		// "This card gains additional Masteries ..." is fixed at the Fusion Cast, not something that holds on the field.
-		if ( bare || texts[0].StartsWith( "While ", StringComparison.OrdinalIgnoreCase ) || texts[0].StartsWith( "This card gains additional Masteries" ) )
+		// A card rule that names its own subject ("This card can not declare Combat the turn it was Fusion Cast") prints bare.
+		if ( bare || texts[0].StartsWith( "While ", StringComparison.OrdinalIgnoreCase ) || texts[0].StartsWith( "This card gains additional Masteries" )
+			|| texts[0].StartsWith( "This card can", StringComparison.Ordinal ) || texts[0].StartsWith( "Its ", StringComparison.Ordinal ) )
 			return Sentences( effect.Always );
-		var where = effect.Section == EffectSection.Field ? "on the field" : $"in the {effect.Section}";
+		var where = effect.Section switch
+		{
+			EffectSection.Field => "on the field",
+			// Only while the card itself is out, not attached (Justin, 2026-11-22).
+			EffectSection.Battlefield => "on the Battlefield",
+			_ => $"in the {effect.Section}",
+		};
 		var first = Finish( $"While this card is {where}, {OracleText.Continue( LowerFirst( texts[0] ) )}" );
 		return string.Join( " ", new[] { first }.Concat( texts.Skip( 1 ).Select( t => Finish( OracleText.Capitalize( t ) ) ) ) );
 	}
@@ -294,9 +302,13 @@ public static class EffectWriter
 
 		// A Field effect of a card that stays out, set off by something other than this card itself, says where it
 		// listens: "While this card is on the field, whenever a Damage Overtime on an enemy increases".
-		if ( effect.Section == EffectSection.Field && when.Count > 0 && !activated && !response && !Passing( card )
-			&& effect.When.All( w => !SelfTriggers.Contains( w.Op ) || w.Op == "OP_WhenTributed" && TriggerSubject( w ) != CardRef.This ) )
-			lead = $"While this card is on the field, {LowerWhen( lead )}";
+		if ( effect.Section is EffectSection.Field or EffectSection.Battlefield && when.Count > 0 && !activated && !response && !Passing( card )
+			&& effect.When.All( w => !SelfTriggers.Contains( w.Op ) && !IsSelfFusionCast( w ) || w.Op == "OP_WhenTributed" && TriggerSubject( w ) != CardRef.This ) )
+			lead = $"While this card is {OnWhat( effect )}, {LowerWhen( lead )}";
+		// A Battlefield effect you activate, or one that answers from the Battlefield, says where it works (Kitharas
+		// Mordiael and Andromeda, game v0.8.52): "While this card is on the Battlefield, you can tribute it: ...".
+		if ( effect.Section == EffectSection.Battlefield && (activated || response) )
+			lead = lead.Length == 0 ? "While this card is on the Battlefield" : $"While this card is on the Battlefield, {LowerWhen( lead )}";
 		// An Aura's activated effects work from the Aura zone and say so (Kitharas Was Silenced, Justin 2026-11-20):
 		// "While this card is in your Aura, you can Evade Cast ...".
 		var fromAura = effect.Section == EffectSection.Field && activated && IsAura( card );
@@ -313,8 +325,9 @@ public static class EffectWriter
 
 		// Costs are optional when you choose to activate, or to answer a trigger ("you can Void this card").
 		var cost = string.Join( " and ", costs );
-		if ( cost.Length > 0 && (activated || response || effect.Section is EffectSection.Abyss or EffectSection.Void) && !cost.StartsWith( "Tribute", StringComparison.Ordinal ) )
-			cost = (lead.Length == 0 ? "You may " : "you can ") + OracleText.Continue( cost );
+		// A Cast card's own "Tribute ...:" is its cost as printed; an effect you choose to activate says "you can tribute".
+		if ( cost.Length > 0 && (activated || response || effect.Section is EffectSection.Abyss or EffectSection.Void) && (!cost.StartsWith( "Tribute", StringComparison.Ordinal ) || activated) )
+			cost = (lead.Length == 0 ? "You may " : "you can ") + (cost.StartsWith( "Tribute", StringComparison.Ordinal ) ? "t" + cost[1..] : OracleText.Continue( cost ));
 
 		var head = Join( lead, cost );
 		if ( head.Length == 0 && activated && effect.Section == EffectSection.Hand && effect.Then.Count > 0 )
@@ -323,7 +336,10 @@ public static class EffectWriter
 		var lasting = Sentences( effect.Always );
 		// "If this card is tributed, Evade Cast this card": an "If ..." trigger with nothing to pay reads on with a comma,
 		// as the game's cards print it (Kitharas Mordiael).
-		var comma = !activated && costs.Count == 0 && conditions.Count == 0 && when.Count == 1 && lead.StartsWith( "If ", StringComparison.Ordinal );
+		var comma = !activated && costs.Count == 0 && conditions.Count == 0 && when.Count == 1 && lead.StartsWith( "If ", StringComparison.Ordinal )
+			// "When this card arrives on the Battlefield, you can attach ..." (Kitharas Consumer): an optional step reads on with a comma.
+			|| !activated && !response && costs.Count == 0 && conditions.Count == 0 && when.Count == 1 && lead.StartsWith( "When this card", StringComparison.Ordinal )
+				&& body.StartsWith( "you can ", StringComparison.OrdinalIgnoreCase );
 		// An optional effect with nothing to pay says "you can" before what it does ("While this card is in your Aura, you can ...").
 		if ( fromAura && costs.Count == 0 && conditions.Count == 0 && head.Length > 0 && body.Length > 0 )
 			return Finish( $"{head}, you can {OracleText.Continue( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
@@ -339,6 +355,12 @@ public static class EffectWriter
 	{
 		"OP_WhenArrives", "OP_WhenLeavesField", "OP_WhenCast", "OP_WhenSentTo", "OP_WhenDiscarded", "OP_WhenTributed", "OP_Activate", "OP_QuickCastResponse",
 	};
+
+	/// <summary>"When this card is Fusion Cast" (Kitharas Devourer): a trigger about this card itself.</summary>
+	static bool IsSelfFusionCast( OperationBlock op ) =>
+		op.Op == "OP_WhenFusionCast" && BlockRegistry.Get( op.Op )?.Value( op, "Card" ) == "this card";
+
+	static string OnWhat( CardEffect effect ) => effect.Section == EffectSection.Battlefield ? "on the Battlefield" : "on the field";
 
 	static bool IsAura( CardDefinition card ) => card?.Types.Any( t => t is "PositiveAura" or "NegativeAura" or "Aura" ) == true;
 
