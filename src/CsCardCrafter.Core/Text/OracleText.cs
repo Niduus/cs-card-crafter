@@ -60,9 +60,13 @@ public static class OracleText
 			// missing HP; "(x2 if their Mastery is Life)"; X counts every player's cards; the defender's count is "they have".
 			// "Can only be Fusion Cast by its own effect or by "Kitharas Hexation"" (card-description-revamps B18).
 			"OP_FusionCastOnlyBy" => "Can only be Fusion Cast by " + (block.Value( op, "Self" ) == "true" ? "its own effect or by " : "")
-				+ string.Join( " or ", block.Value( op, "Names" ).Split( '|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).Select( n => $"\"{n}\"" ) ),
+				+ string.Join( " or ", block.Value( op, "Names" ).Split( '|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).Select( n => $"\"{n}\"" ) )
+				// 'using a "Kitharas" Fusion card you control as material' (Kitharas Consumer, game v0.8.52).
+				+ (block.Value( op, "Using" ).Trim() is { Length: > 0 } fusion ? $", using a \"{fusion}\" Fusion card you control as material" : ""),
 			"OP_CombatPerMissingHealth" => $"+{block.Value( op, "Amount" )} per 1% HP you are missing",
-			"OP_DoubleCombatVsMastery" => $"(x2 if their Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()})",
+			"OP_DoubleCombatVsMastery" => block.Value( op, "Mastery" ) == DoubleVsMasteryBlock.ThisCards
+				? "(x2 if their Mastery is one of this card's Masteries)"
+				: $"(x2 if their Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()})",
 			"OP_CombatX" => $"(X = {block.Value( op, "Base" )} + {block.Value( op, "Per" )} per {Mastery( block.Value( op, "Mastery" ) )}card on every field and in every Abyss)",
 			"OP_CombatPerDefender" => $"+{block.Value( op, "Amount" )} per {block.Value( op, "Per" )} they have",
 			_ => block.Text( op ),
@@ -78,11 +82,11 @@ public static class OracleText
 	static string Named( Block block, OperationBlock op ) =>
 		block.Value( op, "Name" ) is { Length: > 0 } name ? $"\"{name}\" " : "";
 
-	/// <summary>"+1000 per non-Fusion "Yharon" card on your field or in your Abyss", "+50 per attached card", "+60 per card revealed during its Fusion Cast".</summary>
+	/// <summary>"+1000 per non-Fusion "Yharon" card on your field and in your Abyss", "+50 per attached card", "+60 per card revealed during its Fusion Cast".</summary>
 	static string CombatPerCount( Block block, OperationBlock op )
 	{
 		var each = $"+{block.Value( op, "Amount" )} per ";
-		var card = $"{Flag( block, op, "NonFusion", "non-Fusion" )}{Named( block, op )}card";
+		var card = $"{Flag( block, op, "NonFusion", "non-Fusion" )}{Flag( block, op, "Duo", "Duo-Mastery" )}{Named( block, op )}card";
 		return block.Value( op, "Where" ) switch
 		{
 			CombatPerCountBlock.Attached => each + "attached " + card,
@@ -90,7 +94,8 @@ public static class OracleText
 			CombatPerCountBlock.YourAbyss => each + card + " in your Abyss",
 			CombatPerCountBlock.EveryFieldAndAbyss => each + card + " on the field and in any Abyss",
 			CombatPerCountBlock.EveryAbyss => each + card + " in every Abyss",
-			_ => each + card + " on your field or in your Abyss",
+			// As the game's cards print it (Kitharas Mordiael, 2026-11-22).
+			_ => each + card + " on your field and in your Abyss",
 		};
 	}
 
@@ -124,7 +129,12 @@ public static class OracleText
 		// "..., other than "Freezing Mana"" (game v0.8.47).
 		var except = block.Value( op, "Except" ) is { Length: > 0 } x
 			? ", other than " + string.Join( " or ", x.Split( '|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).Select( n => $"\"{n}\"" ) ) : "";
-		return $"Select and Draw {block.Value( op, "Amount" )} {kind}{Mastery( block.Value( op, "Mastery" ) )}{Named( block, op )}card{distinct}{mentions} from {pile}{except}";
+		// A whole card's name ("Kitharas Mordiael", or several split by |) reads as that card: 'Select and Draw 1
+		// "Kitharas Mordiael" or "Kitharas Sentence" from your Main Deck' (game v0.8.52).
+		var name = block.Value( op, "Name" );
+		if ( name.Length > 0 && name.Split( '|' ).All( n => n.Trim().Contains( ' ' ) ) && kind.Length == 0 && mentions.Length == 0 && distinct.Length == 0 && block.Value( op, "Duo" ) != "true" )
+			return $"Select and Draw {block.Value( op, "Amount" )} {string.Join( " or ", name.Split( '|' ).Select( n => $"\"{n.Trim()}\"" ) )} from {pile}{except}";
+		return $"Select and Draw {block.Value( op, "Amount" )} {kind}{Flag( block, op, "Duo", "Duo-Mastery" )}{Mastery( block.Value( op, "Mastery" ) )}{Named( block, op )}card{distinct}{mentions} from {pile}{except}";
 	}
 
 	/// <summary>
