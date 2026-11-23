@@ -298,7 +298,19 @@ public static class EffectWriter
 				lead += " " + filter;
 			ifs.Remove( op );
 		}
+		// A Hand effect you activate that checks "if this card is in your hand" reads it as its precondition, the way
+		// Abyss and Aura effects say where they work (Spawn cards, Justin 2026-11-23): "While this card is in your hand,
+		// you can pay 3 Light Mana and discard this card: ...".
+		var fromHand = false;
+		if ( activated && effect.Section == EffectSection.Hand
+			&& ifs.FirstOrDefault( op => op.Op == "OP_IfCardIsIn" && IsThisCardInHand( op ) ) is { } inHand )
+		{
+			ifs.Remove( inHand );
+			fromHand = true;
+		}
 		var conditions = ifs.Select( OracleText.Of ).Where( t => t.Length > 0 ).Select( Condition ).ToList();
+		if ( fromHand )
+			lead = lead.Length == 0 ? "While this card is in your hand" : $"While this card is in your hand, {LowerWhen( lead )}";
 
 		// A Field effect of a card that stays out, set off by something other than this card itself, says where it
 		// listens: "While this card is on the field, whenever a Damage Overtime on an enemy increases".
@@ -348,6 +360,14 @@ public static class EffectWriter
 		if ( text.Length > 0 && lasting.Length > 0 )
 			return Finish( text ) + " " + lasting;
 		return text.Length > 0 ? Finish( text ) : lasting;
+	}
+
+	/// <summary>"if this card is in your hand" and nowhere else: the precondition of a Hand effect.</summary>
+	static bool IsThisCardInHand( OperationBlock op )
+	{
+		var block = BlockRegistry.Get( op.Op );
+		return string.Equals( block.Value( op, "Card" ), CardRef.This, StringComparison.OrdinalIgnoreCase )
+			&& Places.Parse( block.Value( op, "Places" ) ) is [Places.Hand];
 	}
 
 	/// <summary>Triggers about this card itself ("When this card arrives on the Battlefield"): they need no "While ..." lead.</summary>
@@ -467,10 +487,11 @@ public static class EffectWriter
 	/// </summary>
 	public static string UsageLine( CardDefinition card )
 	{
-		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && !IsInnate( e ) ) )
+		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && !IsInnate( e ) && !IsFamilyLimit( e ) ) )
 			return "";
 		// Effects whose text already prints their limit ("Once per turn, ..." typed by hand) need no note for it.
 		var groups = card.Effects
+			.Where( e => !(e.Section == EffectSection.ImportantTag && IsFamilyLimit( e )) )
 			.Where( e => e.Usage is EffectUsage.OncePerTurn or EffectUsage.OncePerRound or EffectUsage.OncePerConflict )
 			.Where( e => !(string.IsNullOrWhiteSpace( e.Text ) ? (e.HasOperations ? Write( card, e ) : "") : e.Text).Contains( "once per", StringComparison.OrdinalIgnoreCase ) )
 			.GroupBy( e => e.Usage switch { EffectUsage.OncePerTurn => "turn", EffectUsage.OncePerRound => "round", _ => "Conflict" } )
@@ -492,6 +513,14 @@ public static class EffectWriter
 		}
 		return $"You can only activate {Series( parts )}.";
 	}
+
+	/// <summary>
+	/// An Important Tag that is only a name-wide limit ('You can only activate 1 "Spawn" card per round.'): it is its own
+	/// line, so the card's once-per end note still follows it (Spawn cards, Justin 2026-11-23).
+	/// </summary>
+	static bool IsFamilyLimit( CardEffect effect ) =>
+		effect.Always.Count > 0 && effect.Always.All( op => op.Op == "OP_ActivationLimit" )
+		&& effect.When.Count + effect.If.Count + effect.Cost.Count + effect.Then.Count == 0;
 
 	/// <summary>A Cast or Quick Cast card's own effect (its Field or Hand effect): activating it is activating the card.</summary>
 	static bool IsSelf( CardDefinition card, CardEffect effect ) =>
