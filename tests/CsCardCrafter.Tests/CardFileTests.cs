@@ -90,6 +90,26 @@ public class CardFileTests
 	}
 
 	/// <summary>
+	/// Spawn hand effect (Justin approved, 2026-11-23): an "if this card is in your hand" condition on a Hand effect you
+	/// activate leads as "While this card is in your hand", and the once per Conflict limit is the end note.
+	/// </summary>
+	[Theory]
+	[InlineData( "Spawn of Ice", "Ice" )]
+	[InlineData( "Spawn of Spectre", "Spectre" )]
+	[InlineData( "Spawn of Death", "Death" )]
+	[InlineData( "Spawn of Light", "Light" )]
+	public void SpawnHandEffectWritesItsText( string name, string mastery )
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == name );
+		var hand = card.Effects.First( e => e.Section == EffectSection.Hand );
+		Assert.Equal( $"While this card is in your hand, you can pay 3 Light Mana and discard this card: Select and Draw 1 {mastery} card from your Main Deck.",
+			CsCardCrafter.Core.Text.EffectWriter.Write( card, hand ) );
+		Assert.Equal( hand.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, hand ) );
+		Assert.Equal( "You can only activate this card's Hand effect once per Conflict.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+	}
+
+	/// <summary>
 	/// The Kitharas combo redesign (Justin approved, 2026-11-22): every effect of the rebuilt cards writes the approved
 	/// words from its blocks, and the once-per end note names Battlefield effects.
 	/// </summary>
