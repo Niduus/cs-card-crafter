@@ -311,4 +311,19 @@ public class RevampWordingTests
 		Assert.DoesNotContain( "once per", EffectWriter.Write( card, effect ), StringComparison.OrdinalIgnoreCase );
 		Assert.Equal( "You can only activate this card's Hand effect once per turn.", EffectWriter.UsageLine( card ) );
 	}
+
+	/// <summary>Justin 2026-11-23: "When this card arrives" is a Battlefield effect, and its end note says "Battlefield".</summary>
+	[Fact]
+	public void ArrivalIsBattlefield()
+	{
+		var card = new CardDefinition { Name = "Test", Mastery = "Myth", Types = new() { "Damage" } };
+		var effect = new CardEffect { Section = EffectSection.Field, Usage = EffectUsage.OncePerTurn };
+		effect.When.Add( new OperationBlock { Op = "OP_WhenArrives" } );
+		effect.Then.Add( new OperationBlock { Op = "OP_Draw" } );
+		card.Effects.Add( effect );
+		Assert.Contains( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "Battlefield" ) );
+		effect.Section = EffectSection.Battlefield;
+		Assert.DoesNotContain( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "works only on the Battlefield" ) );
+		Assert.Equal( "You can only activate this card's Battlefield effect once per turn.", EffectWriter.UsageLine( card ) );
+	}
 }

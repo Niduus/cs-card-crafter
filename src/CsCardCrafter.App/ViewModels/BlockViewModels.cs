@@ -186,6 +186,10 @@ public sealed partial class SlotViewModel : ObservableObject
 	public void Add( Block block )
 	{
 		var op = block.Make( block.Params.Where( p => !string.IsNullOrEmpty( p.Default ) ).Select( p => (p.Key, p.Default) ).ToArray() );
+		// Justin 2026-11-23: "When this card arrives" means arriving on the Battlefield (a child of Field), so a Field
+		// effect that gains that trigger becomes a Battlefield effect.
+		if ( block.Id == "OP_WhenArrives" && _effect.Section == EffectSection.Field )
+			_effect.Section = EffectSection.Battlefield;
 		List.Add( op );
 		Blocks.Add( new BlockViewModel( this, op ) );
 		Changed();

@@ -75,6 +75,10 @@ public static class CardChecks
 		if ( System.Text.RegularExpressions.Regex.IsMatch( (card.Description ?? "") + " " + string.Join( " ", card.Effects.Select( e => e.Text ) ),
 			@"\((not|no) (once|1|one) per (turn|round|conflict)\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase ) )
 			Warn( "Leave out \"(Not once per turn)\": cards only say when once per turn, round or Conflict applies." );
+		// Justin 2026-11-23: "When this card arrives" is a Battlefield effect (Battlefield is a child of Field).
+		foreach ( var (effect, i) in card.Effects.Select( (e, i) => (e, i) ) )
+			if ( effect.When.Any( op => op.Op == "OP_WhenArrives" ) && effect.Section != EffectSection.Battlefield )
+				Warn( $"Effect {i + 1}: \"When this card arrives\" works only on the Battlefield; set its section to Battlefield (it is {effect.Section})." );
 		if ( card.Effects.Any( e => e.Section == EffectSection.ImportantTag && e.If.Count > 0 && !CsCardCrafter.Core.Text.EffectWriter.IsInnate( e ) ) )
 			Warn( "An innate condition holds IF blocks only; move its other blocks to an effect of their own." );
 		if ( card.Keywords.Any( k => CardKeywords.Name( k ) is null ) )
