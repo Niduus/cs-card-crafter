@@ -29,7 +29,7 @@ public static class OracleText
 			"OP_DealDamage" => $"Deal {block.Value( op, "Amount" )} {Mastery( block.Value( op, "Mastery" ) )}damage to {Object( block.Value( op, "Who" ) )}",
 			"OP_ApplyCrowdControl" => CrowdControl( block, op ),
 			"OP_GainMend" => Mend( block.Value( op, "Who" ), block.Value( op, "Count" ) ),
-			"OP_IfEnhanced" => block.Value( op, "Enhanced" ) == "true" ? "If Enhanced:" : "",
+			"OP_IfEnhanced" => block.Value( op, "Enhanced" ) == "false" ? "" : "If Enhanced:",
 			"OP_IfMastery" => $"if your Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}",
 			"OP_OnlyIfMastery" => $"If your Mastery is {Mastery( block.Value( op, "Mastery" ) ).Trim()}:",
 			// "Then, if 1 or more of them are Duo-Mastery, you can Fusion Cast ..." (Crimes Against Kitharas, 2026-11-21):
