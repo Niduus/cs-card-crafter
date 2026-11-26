@@ -55,6 +55,16 @@ public static class CardChecks
 					var block = BlockRegistry.Get( op.Op );
 					if ( block is null )
 						Problem( $"Effect {i + 1}: the game has no block called {op.Op}." );
+					// Spellscript: a script with mistakes does nothing in the game, so say so here.
+					if ( block?.Params.FirstOrDefault( p => p.Kind == ParamKind.Script ) is { } script )
+					{
+						var code = block.Value( op, script.Key );
+						var mistakes = block.Slot == EffectSlot.If ? Spellscript.CheckCondition( code ) : Spellscript.Check( code );
+						foreach ( var mistake in mistakes )
+							Problem( $"Effect {i + 1}, {block.Name}: {mistake}." );
+						if ( string.IsNullOrWhiteSpace( block.Value( op, "Says" ) ) )
+							Warn( $"Effect {i + 1}, {block.Name}: write its Card text, the words the card prints for what the script does." );
+					}
 					else if ( block.Slot != slot && !(block.Slot == EffectSlot.Then && slot == EffectSlot.If) && !(block.Slot == EffectSlot.If && slot == EffectSlot.Then) )
 						Warn( $"Effect {i + 1}: \"{block.Name}\" is a {block.Slot.ToString().ToUpperInvariant()} block but sits in {slot.ToString().ToUpperInvariant()}." );
 				}

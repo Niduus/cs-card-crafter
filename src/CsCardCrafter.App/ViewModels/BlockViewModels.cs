@@ -26,8 +26,35 @@ public sealed partial class ParamViewModel : ObservableObject
 	/// <summary>An on/off option ("Non-Fusion only"): a tick box, never a list of "true" and "false".</summary>
 	public bool IsFlag => Choices.Count == 2 && Choices.Contains( "true" ) && Choices.Contains( "false" );
 
-	/// <summary>Neither a list nor a tick box: typed.</summary>
-	public bool IsTyped => Choices.Count == 0;
+	/// <summary>Neither a list nor a tick box: typed on one line.</summary>
+	public bool IsTyped => Choices.Count == 0 && !IsScript;
+
+	/// <summary>A Spellscript (Script blocks): a code box with its mistakes listed live under it.</summary>
+	public bool IsScript => Param.Kind == ParamKind.Script;
+
+	/// <summary>The script's mistakes, one per line, or empty when it reads fine.</summary>
+	public string ScriptProblems
+	{
+		get
+		{
+			if ( !IsScript )
+				return "";
+			var mistakes = _isCondition ? Spellscript.CheckCondition( Value ) : Spellscript.Check( Value );
+			return string.Join( "\n", mistakes );
+		}
+	}
+
+	public bool HasScriptProblems => ScriptProblems.Length > 0;
+
+	/// <summary>What a script can use, for the code box's tooltip (docs/spellscript.md in the game repo has it all).</summary>
+	public string ScriptHelp => _isCondition
+		? "One condition, e.g.  count(abyss, you) >= 5 and not myturn()\n\n" + Functions
+		: "Lines: let name = value · name = value · if / elif / else / end · repeat N / end · do Block name (Blank: value) · stop\n"
+			+ "Who words can be bare: you, target enemy, all enemies, target ally, allies, everyone.\n\n" + Functions;
+
+	static string Functions => "Functions:\n" + string.Join( "\n", Spellscript.Functions.Select( f => $"  {f.Name}: {f.Help}" ) );
+
+	readonly bool _isCondition;
 
 	public bool On
 	{
@@ -44,6 +71,7 @@ public sealed partial class ParamViewModel : ObservableObject
 		_op = op;
 		_changed = changed;
 		Param = param;
+		_isCondition = BlockRegistry.Get( op.Op )?.Slot == EffectSlot.If;
 		Choices = param.Kind switch
 		{
 			ParamKind.Who => Who.All,
@@ -75,6 +103,11 @@ public sealed partial class ParamViewModel : ObservableObject
 				return;
 			_op.Params[Param.Key] = value;
 			OnPropertyChanged();
+			if ( IsScript )
+			{
+				OnPropertyChanged( nameof( ScriptProblems ) );
+				OnPropertyChanged( nameof( HasScriptProblems ) );
+			}
 			_changed();
 		}
 	}

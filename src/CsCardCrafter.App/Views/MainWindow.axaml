@@ -313,6 +313,8 @@
 																										<TextBlock Text="{Binding Label}" FontSize="12" Opacity="0.75" TextWrapping="Wrap" IsVisible="{Binding !IsFlag}" />
 																										<ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding Value}" IsVisible="{Binding HasChoices}" HorizontalAlignment="Stretch" FontSize="12" />
 																										<TextBox Text="{Binding Value}" IsVisible="{Binding IsTyped}" FontSize="12" MinHeight="26" Padding="4,2" />
+																										<TextBox Text="{Binding Value}" IsVisible="{Binding IsScript}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" FontFamily="Consolas,Menlo,monospace" FontSize="12" MinHeight="90" MaxHeight="320" Padding="4,2" ToolTip.Tip="{Binding ScriptHelp}" />
+																										<TextBlock Text="{Binding ScriptProblems}" IsVisible="{Binding HasScriptProblems}" Foreground="#E06C75" FontSize="11" TextWrapping="Wrap" />
 																										<ItemsControl ItemsSource="{Binding PlaceOptions}" IsVisible="{Binding IsPlaces}">
 																											<ItemsControl.ItemsPanel>
 																												<ItemsPanelTemplate>
