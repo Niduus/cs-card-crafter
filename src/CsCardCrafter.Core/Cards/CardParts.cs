@@ -42,6 +42,10 @@ public static class CardParts
 	public const string MainDeckIcon = "ui/card/icons/decktypemain.png";
 	public const string SideDeckIcon = "ui/card/icons/decktypeside.png";
 	public const string OnlyOneIcon = "ui/card/icons/onlyone.png";
+	/// <summary>Mythic: only one of that card on the field across all players (the game's BoardPreview.MythicTaken).</summary>
+	public const string MythicIcon = "ui/card/icons/onlyoneall.png";
+	public static bool IsMythicIcon( string icon ) => (icon ?? "").EndsWith( "onlyoneall.png", System.StringComparison.OrdinalIgnoreCase );
+	public static bool IsLegendaryIcon( string icon ) => !string.IsNullOrEmpty( icon ) && !IsMythicIcon( icon );
 	public const string NoReshuffleIcon = "ui/card/icons/noreshuffle.png";
 	public const string FusionIcon = "ui/card/icons/newfuse.png";
 

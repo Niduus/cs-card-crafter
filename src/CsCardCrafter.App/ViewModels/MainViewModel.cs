@@ -491,7 +491,7 @@ public sealed partial class MainViewModel : ObservableObject
 		nameof( Name ), nameof( Id ), nameof( Mastery ), nameof( DuoMasteries ), nameof( CardType ), nameof( ExtraTypes ), nameof( Deck ),
 		nameof( MaxCopies ), nameof( Combat ), nameof( CombatTarget ), nameof( BladeValue ), nameof( MantleValue ), nameof( ShieldValue ),
 		nameof( TrapValue ), nameof( LifestealFlat ), nameof( LifestealPercent ), nameof( SpiritLimit ), nameof( SpiritUses ),
-		nameof( PermanentAnchored ), nameof( AnchoredRounds ), nameof( Keywords ), nameof( Series ), nameof( OnlyOne ), nameof( NoReshuffle ),
+		nameof( PermanentAnchored ), nameof( AnchoredRounds ), nameof( Keywords ), nameof( Series ), nameof( OnlyOne ), nameof( Mythic ), nameof( NoReshuffle ),
 		nameof( FusionMark ), nameof( FooterLeft ), nameof( FooterRight ), nameof( Artwork ), nameof( Description ), nameof( IsDev ), nameof( Title ),
 	};
 
@@ -640,7 +640,18 @@ public sealed partial class MainViewModel : ObservableObject
 		CardChanged();
 	}
 	public string Series { get => string.Join( ", ", Card?.Series ?? new() ); set => Set( Series, value ?? "", v => Card.Series = SplitList( v ) ); }
-	public bool OnlyOne { get => !string.IsNullOrEmpty( Card?.OnlyIcon ); set => Set( OnlyOne, value, v => Card.OnlyIcon = v ? CardParts.OnlyOneIcon : "" ); }
+	// Legendary ("only one" icon) and Mythic ("only one of all" icon: only one of that card on the field across all
+	// players, Justin 2026-11-27) share the face's one slot, so ticking one clears the other.
+	public bool OnlyOne
+	{
+		get => CardParts.IsLegendaryIcon( Card?.OnlyIcon );
+		set { if ( Set( OnlyOne, value, v => Card.OnlyIcon = v ? CardParts.OnlyOneIcon : "" ) ) OnPropertyChanged( nameof( Mythic ) ); }
+	}
+	public bool Mythic
+	{
+		get => CardParts.IsMythicIcon( Card?.OnlyIcon );
+		set { if ( Set( Mythic, value, v => Card.OnlyIcon = v ? CardParts.MythicIcon : "" ) ) OnPropertyChanged( nameof( OnlyOne ) ); }
+	}
 	public bool NoReshuffle { get => !string.IsNullOrEmpty( Card?.ReshuffleIcon ); set => Set( NoReshuffle, value, v => Card.ReshuffleIcon = v ? CardParts.NoReshuffleIcon : "" ); }
 	public bool FusionMark { get => !string.IsNullOrEmpty( Card?.FusionIcon ); set => Set( FusionMark, value, v => Card.FusionIcon = v ? CardParts.FusionIcon : "" ); }
 	public string FooterLeft { get => Card?.FooterLeft ?? ""; set => Set( FooterLeft, value ?? "", v => Card.FooterLeft = v ); }

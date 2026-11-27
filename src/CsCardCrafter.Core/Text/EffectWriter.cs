@@ -12,7 +12,7 @@ namespace CsCardCrafter.Core.Text;
 /// sentence: what the target gets in one list, the rest after a semicolon or ", then".</item>
 /// <item>Keyword: the ALWAYS blocks as keyword lines ("Lifesteal: 10%.").</item>
 /// <item>Others: "[WHEN], [IF]: [COST]: [THEN]." ("When this card is sent to the Abyss, if your mastery is Death: you
-/// draw 2."), with "You may" / "While this card is in the Abyss, you can" for effects you activate.</item>
+/// draw 2."), with "You may" / "While this card is in your Abyss, you can" for effects you activate.</item>
 /// </list>
 /// </summary>
 public static class EffectWriter
@@ -321,15 +321,16 @@ public static class EffectWriter
 		// Mordiael and Andromeda, game v0.8.52): "While this card is on the Battlefield, you can tribute it: ...".
 		if ( effect.Section == EffectSection.Battlefield && (activated || response) )
 			lead = lead.Length == 0 ? "While this card is on the Battlefield" : $"While this card is on the Battlefield, {LowerWhen( lead )}";
-		// An Aura's activated effects work from the Aura zone and say so (Kitharas Was Silenced, Justin 2026-11-20):
-		// "While this card is in your Aura, you can Evade Cast ...".
+		// An Aura's activated effects work from the Aura zone and say so (Kitharas Was Silenced, Justin 2026-11-20). You only
+		// ever have one Aura, so the card IS your Aura (Justin 2026-11-27): "While this card is your Aura, you can Evade Cast ...".
 		var fromAura = effect.Section == EffectSection.Field && activated && IsAura( card );
 		if ( fromAura )
-			lead = lead.Length == 0 ? "While this card is in your Aura" : $"While this card is in your Aura, {LowerWhen( lead )}";
+			lead = lead.Length == 0 ? "While this card is your Aura" : $"While this card is your Aura, {LowerWhen( lead )}";
 		// Effects that work from the Abyss or Void say so first, unless the trigger is this card arriving there.
 		if ( effect.Section is EffectSection.Abyss or EffectSection.Void && !effect.When.Any( w => w.Op == "OP_WhenSentTo" ) )
 		{
-			var where = $"While this card is in the {effect.Section}";
+			// "in your Abyss": only you can use your own card's Abyss effects ("in the Abyss" would read as anyone's, Justin 2026-11-27).
+			var where = $"While this card is in your {effect.Section}";
 			lead = lead.Length == 0 ? where : $"{where}, {LowerWhen( lead )}";
 		}
 		if ( conditions.Count > 0 )
@@ -352,7 +353,7 @@ public static class EffectWriter
 			// "When this card arrives on the Battlefield, you can attach ..." (Kitharas Consumer): an optional step reads on with a comma.
 			|| !activated && !response && costs.Count == 0 && conditions.Count == 0 && when.Count == 1 && lead.StartsWith( "When this card", StringComparison.Ordinal )
 				&& body.StartsWith( "you can ", StringComparison.OrdinalIgnoreCase );
-		// An optional effect with nothing to pay says "you can" before what it does ("While this card is in your Aura, you can ...").
+		// An optional effect with nothing to pay says "you can" before what it does ("While this card is your Aura, you can ...").
 		if ( fromAura && costs.Count == 0 && conditions.Count == 0 && head.Length > 0 && body.Length > 0 )
 			return Finish( $"{head}, you can {OracleText.Continue( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
 		var text = head == "You can" ? $"You can {OracleText.Continue( body )}"
@@ -388,7 +389,7 @@ public static class EffectWriter
 	static bool Passing( CardDefinition card ) =>
 		card?.Types.Any( t => t is "Cast" or "Domain" or "PositiveAura" or "NegativeAura" or "Aura" or "QuickCast" ) == true;
 
-	/// <summary>"When ..." and "Whenever ..." read on in lower case after "While this card is in the Abyss, ".</summary>
+	/// <summary>"When ..." and "Whenever ..." read on in lower case after "While this card is in your Abyss, ".</summary>
 	static string LowerWhen( string lead ) =>
 		Regex.IsMatch( lead, "^(When|Whenever|If|During) " ) ? char.ToLowerInvariant( lead[0] ) + lead[1..] : lead;
 
@@ -441,6 +442,12 @@ public static class EffectWriter
 			if ( first && i == 0 )
 			{
 				text = OracleText.Capitalize( parts[0] );
+				continue;
+			}
+			// "and if you do, target enemy sends ..." (Carnage) brings its own connector.
+			if ( parts[i].StartsWith( "and if you do", StringComparison.Ordinal ) )
+			{
+				text += ", " + parts[i];
 				continue;
 			}
 			// A gate that reads on ("Then, if 1 or more of them are Duo-Mastery,") takes the next part without a connector.
@@ -505,7 +512,10 @@ public static class EffectWriter
 		{
 			var names = effects.Select( e => SectionName( card, e ) ).Distinct().ToList();
 			var noun = effects.Count == 1 ? "effect" : "effects";
-			var owner = parts.Count == 0 && !self ? "this card's" : "its";
+			// A limit every copy shares (Usage scope "Same name") names the card: 'You can only activate "Carnage"'s Aura and
+			// Abyss effects once per Conflict.' (Justin 2026-11-27).
+			var shared = effects.Count > 0 && effects.All( e => e.UsageScope == EffectUsageScope.SameName );
+			var owner = parts.Count == 0 && !self ? (shared ? $"\"{card.Name}\"'s" : "this card's") : "its";
 			var what = self
 				? (names.Count == 0 ? "this card" : $"this card and its {Series( names )} {noun}")
 				: $"{owner} {Series( names )} {noun}";

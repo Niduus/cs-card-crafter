@@ -80,12 +80,26 @@ public class CardFileTests
 		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Kitharas Was Silenced" );
 		foreach ( var effect in card.Effects.Where( e => e.Section is EffectSection.Field or EffectSection.Abyss or EffectSection.Keyword ) )
 			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
-		Assert.Equal( "While this card is in your Aura, you can Evade Cast 1 Select non-Fusion Damage type \"Kitharas\" card from your hand, then it gains Final Will.",
+		Assert.Equal( "While this card is your Aura, you can Evade Cast 1 Select non-Fusion Damage type \"Kitharas\" card from your hand, then it gains Final Will.",
 			CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects.First( e => e.Section == EffectSection.Field ) ) );
-		Assert.Equal( "While this card is in the Abyss, you can Void this card: Evade Cast 1 target \"Kitharas\" card with a listed cost of 7 Light Mana from your Abyss, then it gains Anchored 3 Rounds.",
+		Assert.Equal( "While this card is in your Abyss, you can Void this card: Evade Cast 1 target \"Kitharas\" card with a listed cost of 7 Light Mana from your Abyss, then it gains Anchored 3 Rounds.",
 			CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects.First( e => e.Section == EffectSection.Abyss ) ) );
 		// The once-per limit is the end note (Justin, 2026-11-21).
 		Assert.Equal( "You can only activate this card's Aura and Abyss effects once per turn.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+	}
+
+	/// <summary>
+	/// Carnage (Justin's design, 2026-11-27): "While this card is your Aura", "in your Abyss", the hand-to-Abyss trade with
+	/// "and if you do", the "hand or Deck" Evade Cast, and a once per Conflict end note shared by name.
+	/// </summary>
+	[Fact]
+	public void CarnageWritesItsText()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Carnage" );
+		foreach ( var effect in card.Effects )
+			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( "You can only activate \"Carnage\"'s Aura and Abyss effects once per Conflict.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
 		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
 	}
 

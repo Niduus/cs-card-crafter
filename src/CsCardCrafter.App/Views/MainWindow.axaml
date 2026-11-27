@@ -138,7 +138,8 @@
 
 							<TextBlock Grid.Row="2" Classes="label" Text="Face marks" />
 							<StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="16">
-								<CheckBox IsChecked="{Binding OnlyOne}" Content="Only one" />
+								<CheckBox IsChecked="{Binding OnlyOne}" Content="Legendary (only one)" />
+								<CheckBox IsChecked="{Binding Mythic}" Content="Mythic (one on all fields)" ToolTip.Tip="Only one card with this name can be on the field across all players." />
 								<CheckBox IsChecked="{Binding NoReshuffle}" Content="No reshuffle" />
 								<CheckBox IsChecked="{Binding FusionMark}" Content="Fusion" />
 							</StackPanel>
