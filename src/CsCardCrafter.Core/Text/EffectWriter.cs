@@ -27,10 +27,20 @@ public static class EffectWriter
 		{
 			EffectSection.Combat => Combat( card, effect ),
 			EffectSection.Keyword => KeywordList( effect.Always ),
+			// "This card is Crimson and Life." (Kitharas Hart), "This card is Embraced and Light." (The All-Inspiring
+			// Nyxara): a Considered line with no blocks names the card's two Masteries from its Card tab.
+			EffectSection.Considered when !effect.HasOperations && DuoLine( card ) is { Length: > 0 } duo => duo,
 			_ when IsInnate( effect ) => Innate( effect ),
 			_ when IsLasting( effect ) => Lasting( card, effect ),
 			_ => Limited( effect, Activated( card, effect ) ),
 		};
+	}
+
+	/// <summary>"This card is Embraced and Light." for a card with two Masteries (Light is "Sun" in the data), else empty.</summary>
+	public static string DuoLine( CardDefinition card )
+	{
+		var duo = card?.DuoMasteries.Where( m => !string.IsNullOrWhiteSpace( m ) ).Select( m => Masteries.Get( m ).Name ).Distinct().ToList();
+		return duo is { Count: 2 } ? $"This card is {duo[0]} and {duo[1]}." : "";
 	}
 
 	/// <summary>"Once per turn", "Once per round", "Once per Conflict", or empty for an effect with no once-per limit.</summary>
@@ -65,11 +75,15 @@ public static class EffectWriter
 		var inline = "";
 		var notes = new List<string>();
 		var combatNotes = new List<string>();
+		var also = "";
 		foreach ( var op in effect.Always )
 		{
 			var bonus = OracleText.Of( op );
 			if ( op.Op == "OP_TrueCombat" )
 				damage = "True Damage";
+			// "Combat: 400 Embraced damage and 600 Light damage to target enemy" (The All-Inspiring Nyxara, game v0.8.68).
+			else if ( op.Op == ChaosSpells.Rules.Blocks.CombatAlsoBlock.OpId && BlockRegistry.Get( op.Op ) is { } second )
+				also = $"{second.Value( op, "Amount" )} {(Masteries.Get( second.Value( op, "Mastery" ) ).Name is var kind && kind != Masteries.Masterless ? kind + " " : "")}damage";
 			else if ( op.Op == "OP_CombatMastery" && BlockRegistry.Get( op.Op )?.Value( op, "Mastery" ) is { Length: > 0 } own )
 				damage = (own == "Sun" ? "Light" : own) + " damage";
 			else if ( bonus.Length == 0 )
@@ -96,6 +110,8 @@ public static class EffectWriter
 
 		// What the Combat's own target also gets, and crowd control on them.
 		var list = new List<string> { $"{value} {damage}" };
+		if ( also.Length > 0 )
+			list.Add( also );
 		var controls = new List<string>();
 		var rest = new List<OperationBlock>();
 		foreach ( var op in effect.Then )

@@ -104,6 +104,20 @@ public class CardFileTests
 	}
 
 	/// <summary>
+	/// The All-Inspiring Nyxara (Justin's design, 2026-11-27): Fusion materials of each name from the hand or field, the
+	/// "when an enemy targets you" response with its detach from another Fusion, a Combat of two damage types, and the
+	/// Abyss effect's "another" condition and shuffle cost; the end note mixes once per turn and once per Conflict.
+	/// </summary>
+	[Fact]
+	public void AllInspiringNyxaraWritesItsText()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "The All-Inspiring Nyxara" );
+		foreach ( var effect in card.Effects )
+			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+	}
+
+	/// <summary>
 	/// Emergency Landing (Justin's design, 2026-11-27): the "your HP is 33% or less" innate condition, the legal Evade
 	/// Cast from several places, Frontline with Final Will in one breath, and the Conflict-long "Dragon" lock.
 	/// </summary>

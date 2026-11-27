@@ -149,6 +149,17 @@ public static class OracleText
 			return block.Text( op );
 		// A card never Fusion Casts itself from the Side Deck (Justin, 2026-11-20).
 		const string from = "your hand";
+		// 'using 1 "Knight" and 1 "Dragon" card from your hand or field as materials' (The All-Inspiring Nyxara, game v0.8.68),
+		// the form Ahziael prints ("using 1 Fire and 1 Crimson card from your hand as materials").
+		var names = block.Value( op, "Names" ).Split( ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).ToList();
+		if ( names.Count > 0 || block.Value( op, "MaterialsFrom" ) == "Hand or Field" )
+		{
+			var each = block.Value( op, "Masteries" ).Split( ',', '/' ).Select( m => Mastery( m.Trim() ).Trim() ).Where( m => m.Length > 0 )
+				.Concat( names.Select( n => $"\"{n}\"" ) ).Select( n => "1 " + n ).ToList();
+			var where = block.Value( op, "MaterialsFrom" ) == "Hand or Field" ? "your hand or field" : "your hand";
+			var list = each.Count == 1 ? each[0] : string.Join( ", ", each.Take( each.Count - 1 ) ) + " and " + each[^1];
+			return $"Fusion Cast this card from {from}, using {list} card from {where} as materials";
+		}
 		var reveals = new List<string>();
 		if ( block.Value( op, "AllHand" ) == "true" )
 			reveals.Add( "all other cards in your hand" );
