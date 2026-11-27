@@ -104,6 +104,19 @@ public class CardFileTests
 	}
 
 	/// <summary>
+	/// Emergency Landing (Justin's design, 2026-11-27): the "your HP is 33% or less" innate condition, the legal Evade
+	/// Cast from several places, Frontline with Final Will in one breath, and the Conflict-long "Dragon" lock.
+	/// </summary>
+	[Fact]
+	public void EmergencyLandingWritesItsText()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Emergency Landing" );
+		foreach ( var effect in card.Effects )
+			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+	}
+
+	/// <summary>
 	/// Spawn hand effect (Justin approved, 2026-11-23): an "if this card is in your hand" condition on a Hand effect you
 	/// activate leads as "While this card is in your hand", and the once per Conflict limit is the end note.
 	/// </summary>
