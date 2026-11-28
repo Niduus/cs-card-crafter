@@ -206,6 +206,11 @@ public sealed class CardFaceView : Control
 		var paragraphs = CardText.Format( card.Description, card.Name );
 		if ( paragraphs.Count == 0 )
 			return;
+		// The game pads the box by the same share above and below (CardFit.TextPad), so the text keeps even space
+		// at the top and bottom and never runs over the black rule or into the credits.
+		var clipBox = box;
+		var pad = box.Height * CardFit.TextPad;
+		box = new Rect( box.X, box.Y + pad, box.Width, box.Height - 2 * pad );
 		var size = BaseWidth * CardFit.MaxBodySize * Math.Clamp( CardFit.For( card ).BodyFit, CardFit.MinBodyFit, 1f );
 		List<List<List<Word>>> lines = null;
 		double height = 0;
@@ -220,7 +225,7 @@ public sealed class CardFaceView : Control
 		var y = box.Y + Math.Max( 0, (box.Height - height) / 2 );
 		var lineHeight = size * CardFit.LineHeight;
 		var gap = size * CardFit.WordGap;
-		using var _ = ctx.PushClip( box );
+		using var _ = ctx.PushClip( clipBox );
 		for ( var p = 0; p < lines.Count; p++ )
 		{
 			foreach ( var line in lines[p] )
