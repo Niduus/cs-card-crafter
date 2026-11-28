@@ -118,6 +118,19 @@ public class CardFileTests
 	}
 
 	/// <summary>
+	/// Yharon the Hatchling (Justin 2026-11-28): the Abyss effect answers "when an enemy takes True Damage" from the Abyss
+	/// and reads "While this card is in your Abyss, when an enemy takes True Damage, you can return this card to your hand".
+	/// </summary>
+	[Fact]
+	public void YharonTheHatchlingWritesItsText()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "Yharon the Hatchling" );
+		var abyss = card.Effects.First( e => e.Section == ChaosSpells.Cards.EffectSection.Abyss );
+		Assert.Equal( "While this card is in your Abyss, when an enemy takes True Damage, you can return this card to your hand.", abyss.Text );
+		Assert.Equal( abyss.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, abyss ) );
+	}
+
+	/// <summary>
 	/// Emergency Landing (Justin's design, 2026-11-27): the "your HP is 33% or less" innate condition, the legal Evade
 	/// Cast from several places, Frontline with Final Will in one breath, and the Conflict-long "Dragon" lock.
 	/// </summary>
