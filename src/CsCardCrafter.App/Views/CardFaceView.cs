@@ -82,11 +82,20 @@ public sealed class CardFaceView : Control
 		DrawImage( ctx, Images.Get( "ui/card/layout/frame_outline.png" ), Box( 3.43, 11.19, 93.15, 46.89 ) );
 		var art = Box( 5.51, 12.57, 88.98, 44.07 );
 		ctx.FillRectangle( Brushes.White, art );
-		DrawImage( ctx, Images.Get( card.Artwork ), art );
-
 		// Spirit cards follow the Legendary rule innately (have 1, control 1): one Spirit icon in the Legendary icon's
 		// place, with the Spirit Deck slots it takes over it, and none in the corners or the footer (Justin).
 		var spirit = card.IsSpirit;
+		if ( string.IsNullOrWhiteSpace( card.Artwork ) )
+		{
+			// No artwork yet: the game's default art for the card's Mastery (CardArt.Default) with the card's own crest
+			// in the middle of its rune circle, 60% of the window's height. Spirit faces hide their crest, so their
+			// default art carries its own emblem.
+			DrawImage( ctx, Images.Get( DefaultArt( card.Background ) ), art );
+			if ( !spirit )
+				DrawContain( ctx, Images.Get( card.ClassIcon ), new Rect( art.X, art.Y + art.Height * 0.2, art.Width, art.Height * 0.6 ) );
+		}
+		else
+			DrawImage( ctx, Images.Get( card.Artwork ), art );
 		if ( !spirit )
 			DrawContain( ctx, Images.Get( card.ClassIcon ), Box( 3.66, 11.30, 12.6, 9.04 ) );
 		double[] costTops = { 19.32, 26.02, 32.60 };
@@ -311,6 +320,19 @@ public sealed class CardFaceView : Control
 	{
 		if ( image is not null )
 			ctx.DrawImage( image, new Rect( image.Size ), rect );
+	}
+
+	/// <summary>
+	/// The game's default art for a card background (Code/UI/CardArt.cs Default): "ui/card/backgrounds/firebackground.png"
+	/// is "cards/art_default/fire.jpg"; a background with no default, or none at all, uses masterless.jpg.
+	/// </summary>
+	public static string DefaultArt( string background )
+	{
+		var stem = Path.GetFileNameWithoutExtension( (background ?? "").Replace( '\\', '/' ) ).ToLowerInvariant();
+		if ( stem.EndsWith( "background" ) )
+			stem = stem[..^"background".Length];
+		var path = $"cards/art_default/{stem}.jpg";
+		return stem.Length > 0 && Images.Game?.Resolve( path ) is not null ? path : "cards/art_default/masterless.jpg";
 	}
 
 	/// <summary>An icon fitted inside its box, keeping its shape (background-size: contain).</summary>
