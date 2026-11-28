@@ -29,11 +29,30 @@ public static class EffectWriter
 			EffectSection.Keyword => KeywordList( effect.Always ),
 			// "This card is Crimson and Life." (Kitharas Hart), "This card is Embraced and Light." (The All-Inspiring
 			// Nyxara): a Considered line with no blocks names the card's two Masteries from its Card tab.
-			EffectSection.Considered when !effect.HasOperations && DuoLine( card ) is { Length: > 0 } duo => duo,
+			// When the card also has a "Considered" block line, the two join in one sentence (Justin, 2026-11-28):
+			// 'This card is also a "Knight" card, and is Embraced and Light.', and this blockless line writes nothing.
+			EffectSection.Considered when !effect.HasOperations && DuoLine( card ) is { Length: > 0 } duo =>
+				card.Effects.Any( e => e.Section == EffectSection.Considered && e.HasOperations ) ? "" : duo,
+			EffectSection.Considered when DuoLine( card ) is { Length: > 0 } duo => JoinConsidered( Activated( card, effect ), duo ),
 			_ when IsInnate( effect ) => Innate( effect ),
 			_ when IsLasting( effect ) => Lasting( card, effect ),
 			_ => Limited( effect, Activated( card, effect ) ),
 		};
+	}
+
+	/// <summary>
+	/// Two "This card is ..." statements as one sentence: 'This card is also a "Knight" card.' and 'This card is Embraced
+	/// and Light.' print 'This card is also a "Knight" card, and is Embraced and Light.' (Justin, 2026-11-28).
+	/// </summary>
+	public static string JoinConsidered( string first, string second )
+	{
+		const string lead = "This card is ";
+		first = (first ?? "").Trim();
+		second = (second ?? "").Trim();
+		if ( first.Length == 0 || second.Length == 0 )
+			return first.Length == 0 ? second : first;
+		var rest = second.StartsWith( lead, StringComparison.Ordinal ) ? "is " + second[lead.Length..] : second;
+		return first.TrimEnd( '.', ' ' ) + ", and " + rest.TrimEnd( '.', ' ' ) + ".";
 	}
 
 	/// <summary>"This card is Embraced and Light." for a card with two Masteries (Light is "Sun" in the data), else empty.</summary>
@@ -544,9 +563,30 @@ public static class EffectWriter
 	/// An Important Tag that is only a name-wide limit ('You can only activate 1 "Spawn" card per round.'): it is its own
 	/// line, so the card's once-per end note still follows it (Spawn cards, Justin 2026-11-23).
 	/// </summary>
-	static bool IsFamilyLimit( CardEffect effect ) =>
+	public static bool IsFamilyLimit( CardEffect effect ) =>
 		effect.Always.Count > 0 && effect.Always.All( op => op.Op == "OP_ActivationLimit" )
 		&& effect.When.Count + effect.If.Count + effect.Cost.Count + effect.Then.Count == 0;
+
+	/// <summary>
+	/// Every "You can only activate ..." limit statement on a card printed as one sentence (Justin, 2026-11-28):
+	/// 'You can only activate 1 "Spawn" card per round, and this card's Hand effect once per Conflict.' A line that
+	/// doesn't open with "You can only activate" stays its own sentence after the joined one.
+	/// </summary>
+	public static string JoinLimits( IReadOnlyList<string> lines )
+	{
+		const string lead = "You can only activate ";
+		var parts = new List<string>();
+		var other = new List<string>();
+		foreach ( var line in lines.Select( l => l.Trim() ).Where( l => l.Length > 0 ) )
+		{
+			if ( line.StartsWith( lead, StringComparison.OrdinalIgnoreCase ) )
+				parts.Add( line[lead.Length..].TrimEnd( '.', ' ' ) );
+			else
+				other.Add( line );
+		}
+		var joined = parts.Count == 0 ? "" : lead + string.Join( ", and ", parts ) + ".";
+		return string.Join( " ", other.Prepend( joined ).Where( l => l.Length > 0 ) );
+	}
 
 	/// <summary>A Cast or Quick Cast card's own effect (its Field or Hand effect): activating it is activating the card.</summary>
 	static bool IsSelf( CardDefinition card, CardEffect effect ) =>

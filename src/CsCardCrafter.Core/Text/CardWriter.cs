@@ -32,15 +32,25 @@ public static class CardWriter
 		// "Choose one" options and Coin Flip branches print inside their choice, not as lines of their own.
 		var effects = card.Effects.Where( e => e.Section != EffectSection.Option )
 			.OrderBy( e => EffectWriter.IsInnate( e ) ? -1 : Array.IndexOf( Order, e.Section ) ).ToList();
+		// Name-wide limits ('You can only activate 1 "Spawn" card per round.') join the once-per end note in one sentence.
+		var limits = new List<string>();
 		foreach ( var effect in effects )
 		{
 			var text = keepTyped && !string.IsNullOrWhiteSpace( effect.Text ) ? effect.Text.Trim() : Suggest( card, effect );
+			if ( effect.Section == EffectSection.ImportantTag && EffectWriter.IsFamilyLimit( effect ) )
+			{
+				if ( text.Length > 0 && !limits.Contains( text ) )
+					limits.Add( text );
+				continue;
+			}
 			// Two effects that share one text ("X. If Enhanced: instead Y." is X when not Enhanced and Y when it is) print once.
 			if ( text.Length > 0 && !lines.Contains( text ) )
 				lines.Add( text );
 		}
 		if ( EffectWriter.UsageLine( card ) is { Length: > 0 } usage )
-			lines.Add( usage );
+			limits.Add( usage );
+		if ( EffectWriter.JoinLimits( limits ) is { Length: > 0 } limit )
+			lines.Add( limit );
 		// Every keyword the card has goes in its keyword line (Justin, 2026-11-03).
 		return KeywordLine.Ensure( card, string.Concat( lines.Select( l => "{BEG}" + l + "{END}" ) ) );
 	}
