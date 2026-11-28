@@ -395,6 +395,10 @@ public static class EffectWriter
 		// card is in your Abyss, when an enemy takes True Damage, you can return this card to your hand."
 		if ( response && effect.Section is EffectSection.Abyss or EffectSection.Void && costs.Count == 0 && conditions.Count == 0 && head.Length > 0 && body.Length > 0 )
 			return Finish( $"{head}, you can {OracleText.Continue( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
+		// A Hand effect with nothing to pay that doesn't use this card itself is activated by revealing it (Kitharas
+		// Mordiael, Umbra, the Ruler of Rulers): "You can reveal this card in your hand: Select and Draw 1 ...".
+		if ( head == "You can" && !body.Contains( "this card", StringComparison.OrdinalIgnoreCase ) )
+			return Finish( $"You can reveal this card in your hand: {AfterColon( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
 		var text = head == "You can" ? $"You can {OracleText.Continue( body )}"
 			: head.Length > 0 && body.Length > 0 ? $"{head}{(comma ? ", " + OracleText.Continue( body ) : ": " + AfterColon( body ))}" : head + body;
 		if ( text.Length > 0 && lasting.Length > 0 )
