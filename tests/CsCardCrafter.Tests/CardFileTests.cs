@@ -131,6 +131,23 @@ public class CardFileTests
 	}
 
 	/// <summary>
+	/// Deal with Death, A Pact with Sin and Umbra, the Ruler of Rulers (Justin's designs, 2026-11-28): "then in 3 rounds,
+	/// ..." delayed effects, doubling mana, a True Damage X, the opponent-picked Fusion Cast, the Select-a-field-card
+	/// bounce whose gain can't be doubled, a Select and Draw with a fallback and a self-including legal Evade Cast.
+	/// </summary>
+	[Theory]
+	[InlineData( "Deal with Death" )]
+	[InlineData( "A Pact with Sin" )]
+	[InlineData( "Umbra, the Ruler of Rulers" )]
+	public void NewCardsOfNovember28WriteTheirText( string name )
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == name );
+		foreach ( var effect in card.Effects.Where( e => e.Section != EffectSection.Option && e.HasOperations && e.Section != EffectSection.Keyword ) )
+			Assert.Equal( effect.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, effect ) );
+		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card, keepTyped: false ) );
+	}
+
+	/// <summary>
 	/// Emergency Landing (Justin's design, 2026-11-27): the "your HP is 33% or less" innate condition, the legal Evade
 	/// Cast from several places, Frontline with Final Will in one breath, and the Conflict-long "Dragon" lock.
 	/// </summary>

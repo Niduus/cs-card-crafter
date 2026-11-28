@@ -134,7 +134,15 @@ public static class OracleText
 		var name = block.Value( op, "Name" );
 		if ( name.Length > 0 && name.Split( '|' ).All( n => n.Trim().Contains( ' ' ) ) && kind.Length == 0 && mentions.Length == 0 && distinct.Length == 0 && block.Value( op, "Duo" ) != "true" )
 			return $"Select and Draw {block.Value( op, "Amount" )} {string.Join( " or ", name.Split( '|' ).Select( n => $"\"{n.Trim()}\"" ) )} from {pile}{except}";
-		return $"Select and Draw {block.Value( op, "Amount" )} {kind}{Flag( block, op, "Duo", "Duo-Mastery" )}{Mastery( block.Value( op, "Mastery" ) )}{Named( block, op )}card{distinct}{mentions} from {pile}{except}";
+		var main = $"Select and Draw {block.Value( op, "Amount" )} {kind}{Flag( block, op, "Duo", "Duo-Mastery" )}{Mastery( block.Value( op, "Mastery" ) )}{Named( block, op )}card{distinct}{mentions} from {pile}{except}";
+		// Umbra (game v0.8.103): '; if you have none, Select and Draw 1 card from your Side Deck instead and take 700 True Damage'.
+		if ( block.Value( op, "Fallback" ) == "true" )
+		{
+			main += $"; if you have none, Select and Draw {block.Value( op, "Amount" )} card from {pile} instead";
+			if ( int.TryParse( block.Value( op, "FallbackDamage" ), out var hurt ) && hurt > 0 )
+				main += $" and take {hurt} True Damage";
+		}
+		return main;
 	}
 
 	/// <summary>
