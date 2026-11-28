@@ -148,6 +148,9 @@ public class CardFileTests
 		Assert.Equal( hand.Text, CsCardCrafter.Core.Text.EffectWriter.Write( card, hand ) );
 		Assert.Equal( "You can only activate this card's Hand effect once per Conflict.", CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
 		Assert.Equal( card.Description.Replace( "\r\n", "\n" ).Replace( "}\n{", "}{" ), CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+		// The name-wide limit and the once-per end note print as one sentence (Justin, 2026-11-28).
+		Assert.EndsWith( "{BEG}You can only activate 1 \"Spawn\" card per round, and this card's Hand effect once per Conflict.{END}",
+			CsCardCrafter.Core.Text.CardWriter.Description( card ) );
 	}
 
 	/// <summary>
@@ -259,5 +262,19 @@ public class CardFileTests
 		Assert.DoesNotContain( cards, c => c.Id == next );
 		Assert.True( next < 1000 );
 		Assert.True( GameFolder.NextId( spirit, cards ) > 10000 );
+	}
+
+	/// <summary>"Also considered" statements join in one sentence (Justin, 2026-11-28).</summary>
+	[Fact]
+	public void NyxaraConsideredLinesJoin()
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == "The All-Inspiring Nyxara" );
+		var considered = card.Effects.First( e => e.Section == EffectSection.Considered && e.HasOperations );
+		Assert.Equal( "This card is also a \"Knight\" card, and is Embraced and Light.", CsCardCrafter.Core.Text.EffectWriter.Write( card, considered ) );
+		Assert.StartsWith( "{BEG}This card is also a \"Knight\" card, and is Embraced and Light.{END}{BEG}You can Fusion Cast", CsCardCrafter.Core.Text.CardWriter.Description( card ) );
+		// A blockless Considered line beside a block one writes nothing: the block line carries both.
+		card.Effects.Insert( 1, new CardEffect { Section = EffectSection.Considered } );
+		Assert.Equal( "", CsCardCrafter.Core.Text.EffectWriter.Write( card, card.Effects[1] ) );
+		Assert.StartsWith( "{BEG}This card is also a \"Knight\" card, and is Embraced and Light.{END}{BEG}You can Fusion Cast", CsCardCrafter.Core.Text.CardWriter.Description( card, keepTyped: false ) );
 	}
 }
