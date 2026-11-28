@@ -14,6 +14,9 @@ public sealed record CheckResult( CheckLevel Level, string Message );
 /// </summary>
 public static class CardChecks
 {
+	/// <summary>Most copies of any one card a deck may hold (Justin 2026-11-28); the game's DeckRules.MaxCopiesCap.</summary>
+	public const int MaxCopiesCap = 3;
+
 	public static List<CheckResult> Run( CardDefinition card, GameFolder game = null )
 	{
 		var results = new List<CheckResult>();
@@ -34,8 +37,10 @@ public static class CardChecks
 			Problem( "A Spirit card needs 1 to 6 Spirit points (a Spirit Deck holds at most 6 cards and 6 points)." );
 		if ( card.IsSpirit && card.MaxCopies != 1 )
 			Warn( "Spirit Decks take 1 copy of each Spirit card; set the copy limit to 1." );
-		if ( card.MaxCopies < 1 && !card.IsToken )
-			Warn( "A copy limit of 0 means the card can't go in a deck." );
+		if ( card.MaxCopies > MaxCopiesCap )
+			Problem( $"A deck holds at most {MaxCopiesCap} copies of any card; set the copy limit to {MaxCopiesCap} or less." );
+		if ( card.MaxCopies < 1 && !card.IsToken && !card.IsSpirit )
+			Warn( $"No copy limit: the game treats it as {MaxCopiesCap}. Set 1 to {MaxCopiesCap}." );
 		if ( card.HasType( "Damage" ) && string.IsNullOrWhiteSpace( card.Combat ) )
 			Warn( "Damage cards deal damage in Combat; give it a Combat value." );
 		if ( card.Effects.Count( e => e.Section == EffectSection.Combat ) > 1 )

@@ -129,7 +129,7 @@
 							<TextBlock Classes="label" Text="Deck" />
 							<ComboBox Grid.Column="1" ItemsSource="{x:Static vm:MainViewModel.Decks}" SelectedItem="{Binding Deck}" HorizontalAlignment="Stretch" />
 							<TextBlock Grid.Column="3" Classes="label" Text="Copy limit" />
-							<NumericUpDown Grid.Column="4" Value="{Binding MaxCopies}" Minimum="0" Maximum="9" FormatString="0" />
+							<NumericUpDown Grid.Column="4" Value="{Binding MaxCopies}" Minimum="0" Maximum="3" FormatString="0" ToolTip.Tip="Copies a deck may hold: 3 at most (1 for Spirit cards)." />
 
 							<TextBlock Grid.Row="1" Classes="label" Text="Spirit points" />
 							<TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SpiritLimit}" Watermark="Spirit cards: 1 to 6" />
