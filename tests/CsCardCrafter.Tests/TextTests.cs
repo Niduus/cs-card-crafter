@@ -97,6 +97,18 @@ public class TextTests
 		Assert.Equal( "You can only activate this card once per turn and its Abyss effect once per Conflict.", EffectWriter.UsageLine( card ) );
 	}
 
+	/// <summary>Justin 2026-11-28: card limit is 3 max across the board.</summary>
+	[Fact]
+	public void CopyLimitIsThreeAtMost()
+	{
+		var card = Card();
+		card.MaxCopies = 3;
+		Assert.DoesNotContain( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "at most 3 copies" ) );
+		card.MaxCopies = 4;
+		Assert.Contains( CsCardCrafter.Core.Checks.CardChecks.Run( card ), r => r.Message.Contains( "at most 3 copies" ) );
+		Assert.Equal( 3, CsCardCrafter.Core.Cards.CardParts.NewCard().MaxCopies );
+	}
+
 	/// <summary>Justin 2026-11-03: nothing is written when no once-per limit applies, and "(Not once per turn)" is flagged.</summary>
 	[Fact]
 	public void NoNotOncePerTurn()

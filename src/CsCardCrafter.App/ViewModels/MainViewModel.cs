@@ -567,7 +567,8 @@ public sealed partial class MainViewModel : ObservableObject
 	public string ExtraTypes { get => string.Join( ", ", Card?.Types.Skip( 1 ) ?? Enumerable.Empty<string>() ); set => Set( ExtraTypes, value ?? "", v => Card.Types = Card.Types.Take( 1 ).Concat( SplitList( v ) ).ToList(), look: true ); }
 
 	public DeckKind Deck { get => Card?.Deck ?? DeckKind.Main; set => Set( Deck, value, v => Card.Deck = v, look: true ); }
-	public int MaxCopies { get => Card?.MaxCopies ?? 0; set => Set( MaxCopies, value, v => Card.MaxCopies = v ); }
+	/// <summary>Copy limit, 3 at most (Justin 2026-11-28: "Card limit is 3 MAX across the board").</summary>
+	public int MaxCopies { get => Card?.MaxCopies ?? 0; set => Set( MaxCopies, Math.Clamp( value, 0, CardChecks.MaxCopiesCap ), v => Card.MaxCopies = v ); }
 	public string Combat { get => Card?.Combat ?? ""; set => SetValue( Combat, value ?? "", v => Card.Combat = v, "Combat: " ); }
 	public CombatTarget CombatTarget { get => Card?.CombatTarget ?? default; set => Set( CombatTarget, value, v => Card.CombatTarget = v ); }
 	public int BladeValue { get => Card?.BladeValue ?? 0; set => SetValue( BladeValue, value, v => Card.BladeValue = v ); }
