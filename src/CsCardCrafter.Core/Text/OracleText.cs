@@ -36,6 +36,13 @@ public static class OracleText
 			// a gate part way through that opens its own sentence and reads on into what it allows.
 			"OP_OnlyIfThoseCastAre" => $"Then, if 1 or more of them are {block.Value( op, "Are" )},",
 			"OP_Activate" => "",
+			// A Quick Cast's own costs are paid as it is activated and never printed in its effect (Fast Hands, Overdose).
+			"OP_PayQuickCastCost" => "",
+			"OP_IfEnemyTurn" => "During an enemy's turn",
+			"OP_DrawMirrorRestOfTurn" => "For the rest of this turn, whenever an enemy draws cards, you draw that many",
+			// "During an enemy's turn, you can Enhance this card for 1 Darkness Mana: ..." (Overdose, game v0.8.106): the
+			// writer adds the "you can" an activated cost gets.
+			"OP_YouCanEnhance" => $"Enhance this card for {block.Value( op, "Amount" )} Darkness Mana",
 			"OP_CombatPerCount" => CombatPerCount( block, op ),
 			"OP_IfHaveCard" => HaveCard( block, op ),
 			"OP_SelectAndDraw" => SelectAndDraw( block, op ),

@@ -189,6 +189,20 @@ public class CardFileTests
 		Assert.Equal( usage, CsCardCrafter.Core.Text.EffectWriter.UsageLine( card ) );
 	}
 
+	/// <summary>
+	/// Fast Hands (once per turn, game v0.8.100) and its mana twin Overdose (game v0.8.106, Justin 2026-11-28) write
+	/// their printed text from their blocks: the Quick Cast's own cost isn't printed, and Overdose's optional Enhance
+	/// reads as an activation cost ("you can Enhance this card for 1 Darkness Mana: ...").
+	/// </summary>
+	[Theory]
+	[InlineData( "Fast Hands" )]
+	[InlineData( "Overdose" )]
+	public void QuickCastMirrorsWriteTheirText( string name )
+	{
+		var card = Game.LoadCards().Select( c => c.Card ).First( c => c.Name == name );
+		Assert.Equal( card.Description.Replace( "\n", "" ), CsCardCrafter.Core.Text.CardWriter.Description( card, keepTyped: false ) );
+	}
+
 	/// <summary>An option's Option effect never prints as a line of its own, and two effects sharing one text print it once.</summary>
 	[Fact]
 	public void OptionsAndSharedTextPrintOnce()

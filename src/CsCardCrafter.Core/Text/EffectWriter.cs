@@ -436,7 +436,10 @@ public static class EffectWriter
 	public static string AfterColon( string text ) =>
 		text.StartsWith( "you ", StringComparison.Ordinal ) || text.StartsWith( "You ", StringComparison.Ordinal ) && !text.StartsWith( "You may", StringComparison.Ordinal )
 			? "you " + text[4..]
-			: text.StartsWith( "allies ", StringComparison.Ordinal ) ? text : OracleText.Capitalize( text );
+			: text.StartsWith( "allies ", StringComparison.Ordinal ) ? text
+			// "During an enemy's turn: for the rest of this turn, ..." (Fast Hands, Overdose) reads on in lower case.
+			: text.StartsWith( "For the rest of ", StringComparison.Ordinal ) ? "f" + text[1..]
+			: OracleText.Capitalize( text );
 
 	/// <summary>The card a WHEN block is about, as a card blank names it ("this card"), or empty when it names another.</summary>
 	static string TriggerSubject( OperationBlock when )
