@@ -391,6 +391,10 @@ public static class EffectWriter
 		// An optional effect with nothing to pay says "you can" before what it does ("While this card is your Aura, you can ...").
 		if ( fromAura && costs.Count == 0 && conditions.Count == 0 && head.Length > 0 && body.Length > 0 )
 			return Finish( $"{head}, you can {OracleText.Continue( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
+		// A response from the Abyss with nothing to pay is optional too (Yharon the Hatchling, Justin 2026-11-28): "While this
+		// card is in your Abyss, when an enemy takes True Damage, you can return this card to your hand."
+		if ( response && effect.Section is EffectSection.Abyss or EffectSection.Void && costs.Count == 0 && conditions.Count == 0 && head.Length > 0 && body.Length > 0 )
+			return Finish( $"{head}, you can {OracleText.Continue( body )}" ) + (lasting.Length > 0 ? " " + lasting : "");
 		var text = head == "You can" ? $"You can {OracleText.Continue( body )}"
 			: head.Length > 0 && body.Length > 0 ? $"{head}{(comma ? ", " + OracleText.Continue( body ) : ": " + AfterColon( body ))}" : head + body;
 		if ( text.Length > 0 && lasting.Length > 0 )
